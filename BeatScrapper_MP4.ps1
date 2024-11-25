@@ -36,7 +36,6 @@ Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
 
     #Copie de la musique
     if ($SongName -eq $null) {
-        echo 'pb /////////////'
         #Chemin complet vers la musique
         $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
@@ -57,7 +56,6 @@ Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
             Copy-Item -Path $SongPath -Destination $SongDestPath -Force
         }
         else {
-            echo "ok"
             #Nom de la musique (avec format)
             $DestSongName = $_.Name+".mp4"
 
