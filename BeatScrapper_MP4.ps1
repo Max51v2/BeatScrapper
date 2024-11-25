@@ -75,6 +75,18 @@ Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
                 Invoke-Expression $FFmpegCommand
             } catch {
                 Write-Warning "Erreur lors de la création du fichier $SongName : $_"
+
+                #Nom de la musique (avec format)
+                $DestSongName = $_.Name+$SongExtension
+    
+                #Chemin complet vers la musique
+                $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+    
+                #Chemin de destination complet vers la musique
+                $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
+    
+                #On la copie au format d'origine
+                Copy-Item -Path $SongPath -Destination $SongDestPath -Force
             }
         }
     }
