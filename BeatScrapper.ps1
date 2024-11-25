@@ -8,8 +8,8 @@ $BSPath = "C:\Program Files (x86)\Steam\steamapps\common\Beat Saber\Beat Saber_D
 $DestPath = "C:\Users\Maxime\Downloads\test"
 
 #Listage des maps
-Get-ChildItem -Path $BSPath -Directory | ForEach-Object{
-
+Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
+    echo "#############"
     #Chemin de la map
     $LevelPath = Join-Path -Path $BSPath -ChildPath $_.Name
 
@@ -18,20 +18,20 @@ Get-ChildItem -Path $BSPath -Directory | ForEach-Object{
     $SongExtension = $null
 
     #Listage du contenu de la map
-    Get-ChildItem -Path $LevelPath | ForEach-Object {
+    Get-ChildItem -LiteralPath $LevelPath | ForEach-Object {
         #Récupération du nom et de l'extension de la musique (format egg)
         if ($_.Extension -ieq ".egg" || $_.Extension -ieq ".wav") {
             $SongName = $_.Name
             $SongExtension = $_.Extension
         }
     }
-    
+
     #Copie de la musique
     if ($SongName -eq $null) {
         #Chemin complet vers la musique
         $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
-        Write-Output "Pas de musique pour : "+$SongPath
+        Write-Output "Pas de musique pour : "$SongPath
     }
     else {
         #Nom de la musique (avec format)
