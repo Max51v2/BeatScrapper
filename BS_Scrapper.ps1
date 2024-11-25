@@ -28,7 +28,7 @@ Get-ChildItem -Path $BSPath -Directory | ForEach-Object{
         }
 
         #Récupération du nom et de l'extension de la musique (format wav)
-        if ($_.Extension -ieq ".jpg" || $_.Extension -ieq ".png" || $_.Extension -ieq ".jpeg") {
+        if ($_.Extension -ieq ".jpg" || $_.Extension -ieq ".png" || $_.Extension -ieq ".jpeg" || $_.Extension -ieq ".jfif") {
             $ImageName = $_.Name
             $ImageExtension = $_.Extension
         }
@@ -74,7 +74,7 @@ Get-ChildItem -Path $BSPath -Directory | ForEach-Object{
 
             #On la copie au format mp4 avec la cover
             # Commande FFmpeg pour créer un fichier MP4
-            $FFmpegCommand = "ffmpeg -y -loop 1 -i `"$CoverPath`" -i `"$SongPath`" -vf scale=1280:720 -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest `"$SongDestPath`""
+            $FFmpegCommand = "ffmpeg -y -loop 1 -i `"$CoverPath`" -i `"$SongPath`" -r 1 -c:v libx264 -tune fastdecode -preset ultrafast -vf scale=512:512 -c:a aac -b:a 320k -b:v 500k -shortest -movflags +faststart `"$SongDestPath`""
 
             try {
                 # Exécuter la commande FFmpeg
