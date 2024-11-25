@@ -8,8 +8,8 @@ $BSPath = "C:\Program Files (x86)\Steam\steamapps\common\Beat Saber\Beat Saber_D
 $DestPath = "C:\Users\Maxime\Downloads\test"
 
 #Listage des maps
-Get-ChildItem -Path $BSPath -Directory | ForEach-Object{
-
+Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
+    echo "#############"
     #Chemin de la map
     $LevelPath = Join-Path -Path $BSPath -ChildPath $_.Name
 
@@ -20,30 +20,27 @@ Get-ChildItem -Path $BSPath -Directory | ForEach-Object{
     $ImageExtension = $null
 
     #Listage du contenu de la map
-    Get-ChildItem -Path $LevelPath | ForEach-Object {
+    Get-ChildItem -LiteralPath $LevelPath | ForEach-Object {
         #Récupération du nom et de l'extension de la musique (format egg)
         if ($_.Extension -ieq ".egg" || $_.Extension -ieq ".wav") {
             $SongName = $_.Name
             $SongExtension = $_.Extension
         }
 
-        #Récupération du nom et de l'extension de la musique (format wav)
-        if ($_.Extension -ieq ".jpg" || $_.Extension -ieq ".png" || $_.Extension -ieq ".jpeg" || $_.Extension -ieq ".jfif") {
+        # Récupération du nom et de l'extension de l'image (formats jpg, png, jpeg, jfif)
+        if ($_.Extension -match "^\.(jpg|png|jpeg|jfif)$") {
             $ImageName = $_.Name
             $ImageExtension = $_.Extension
         }
     }
 
-    
-
-    
-
     #Copie de la musique
     if ($SongName -eq $null) {
+        echo 'pb /////////////'
         #Chemin complet vers la musique
         $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
-        Write-Output "Pas de musique pour : "+$SongPath
+        Write-Output "Pas de musique pour : "$SongPath
     }
     else {
         if($ImageName -eq $null){
@@ -60,6 +57,7 @@ Get-ChildItem -Path $BSPath -Directory | ForEach-Object{
             Copy-Item -Path $SongPath -Destination $SongDestPath -Force
         }
         else {
+            echo "ok"
             #Nom de la musique (avec format)
             $DestSongName = $_.Name+".mp4"
 
@@ -74,11 +72,9 @@ Get-ChildItem -Path $BSPath -Directory | ForEach-Object{
 
             #On la copie au format mp4 avec la cover
             # Commande FFmpeg pour créer un fichier MP4
-            $FFmpegCommand = "ffmpeg -y -loop 1 -i `"$CoverPath`" -i `"$SongPath`" -r 1 -c:v libx264 -tune fastdecode -preset ultrafast -vf scale=512:512 -c:a aac -b:a 320k -b:v 500k -shortest -movflags +faststart `"$SongDestPath`""
+            $FFmpegCommand = "ffmpeg -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -c:v libx264 -preset ultrafast -c:a aac -shortest -movflags +faststart `"$SongDestPath`""
 
             try {
-                # Exécuter la commande FFmpeg
-                Write-Host "Création du fichier : $DestSongName"
                 Invoke-Expression $FFmpegCommand
             } catch {
                 Write-Warning "Erreur lors de la création du fichier $SongName : $_"
