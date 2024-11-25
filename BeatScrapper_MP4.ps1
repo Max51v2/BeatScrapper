@@ -9,7 +9,6 @@ $DestPath = "C:\Users\Maxime\Downloads\test"
 
 #Listage des maps
 Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
-    echo "#############"
     #Chemin de la map
     $LevelPath = Join-Path -Path $BSPath -ChildPath $_.Name
 
@@ -70,7 +69,7 @@ Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
 
             #On la copie au format mp4 avec la cover
             # Commande FFmpeg pour créer un fichier MP4
-            $FFmpegCommand = "ffmpeg -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -c:v libx264 -preset ultrafast -c:a aac -shortest -movflags +faststart `"$SongDestPath`""
+            $FFmpegCommand = "ffmpeg -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -c:v libx264 -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
 
             try {
                 Invoke-Expression $FFmpegCommand
