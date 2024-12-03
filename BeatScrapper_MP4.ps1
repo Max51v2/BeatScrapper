@@ -1,11 +1,36 @@
-#Installation de FFmpeg s'il ne l'est pas
-winget install ffmpeg
-
+########################################################################## À Modifier ##########################################################################
 #Chemin d'accès des maps BS
-$BSPath = "C:\Program Files (x86)\Steam\steamapps\common\Beat Saber\Beat Saber_Data\CustomLevels"
+$BSPath = "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomMultiplayerLevels"
 
 #Fichier où les musiques seront transferées
 $DestPath = "C:\Users\Maxime\Downloads\test"
+
+#################################################################################################################################################################
+
+
+#Nom du programme à chercher
+$ProgramName = "ffmpeg.exe"
+
+#Répertoire principal des packages Winget
+$wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
+
+#Recherche du fichier dans les sous-répertoires
+$targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+
+if ($targetPath) {
+    Write-Output "Chemin d'installation trouvé : $targetPath"
+} else {
+    Write-Output "Installation de ffmpeg"
+
+    #Installation de FFmpeg s'il ne l'est pas
+    winget install ffmpeg
+
+    #Répertoire principal des packages Winget
+    $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
+
+    #Recherche du fichier dans les sous-répertoires
+    $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+}
 
 #Listage des maps
 Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
@@ -69,27 +94,26 @@ Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
 
             #On la copie au format mp4 avec la cover
             # Commande FFmpeg pour créer un fichier MP4
-            $FFmpegCommand = "ffmpeg -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -c:v libx264 -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+            $FFmpegCommand = ".\ffmpeg -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -c:v libx264 -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
 
             try {
+                Set-Location $targetPath
                 Invoke-Expression $FFmpegCommand
             } catch {
                 Write-Warning "Erreur lors de la création du fichier $SongName : $_"
 
                 #Nom de la musique (avec format)
                 $DestSongName = $_.Name+$SongExtension
-    
+
                 #Chemin complet vers la musique
                 $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
-    
+
                 #Chemin de destination complet vers la musique
                 $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
-    
+
                 #On la copie au format d'origine
                 Copy-Item -Path $SongPath -Destination $SongDestPath -Force
             }
         }
     }
 }
-
-Write-Host "En cas d'erreur de FFmpeg, merci de fermer et rouvrir powershell"
