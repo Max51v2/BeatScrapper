@@ -1,9 +1,13 @@
 ########################################################################## À Modifier ##########################################################################
 #Chemin d'accès des maps BS
-$BSPath = ""
+$BSPath = "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomLevels"
 
 #Fichier où les musiques seront transferées
-$DestPath = ""
+$DestPath = "C:\Users\Maxime\Downloads\test"
+
+#Cover : "true" | "false"
+#"false" plus rapide
+$IncludeCover = "true"
 
 #################################################################################################################################################################
 
@@ -90,50 +94,17 @@ else{
             }
         }
 
-        #Copie de la musique
-        if ($SongName -eq $null) {
-            #Chemin complet vers la musique
-            $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
-
-            Write-Output "Pas de musique pour : "$SongPath
-        }
-        else {
-            if($ImageName -eq $null){
-                #Nom de la musique (avec format)
-                $DestSongName = $_.Name+$SongExtension
-
+        #Inclue la cover ou non
+        if ($IncludeCover -eq "true") {
+            #Copie de la musique
+            if ($SongName -eq $null) {
                 #Chemin complet vers la musique
                 $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
-                #Chemin de destination complet vers la musique
-                $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
-
-                #On la copie au format d'origine
-                Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+                Write-Output "Pas de musique pour : "$SongPath
             }
             else {
-                #Nom de la musique (avec format)
-                $DestSongName = $_.Name+".mp4"
-
-                #Chemin complet vers la musique
-                $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
-
-                #Chemin de destination complet vers la musique
-                $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
-
-                #Chemin de la cover
-                $CoverPath = Join-Path -Path $LevelPath -ChildPath $ImageName
-
-                #On la copie au format mp4 avec la cover
-                # Commande FFmpeg pour créer un fichier MP4
-                $FFmpegCommand = ".\ffmpeg -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -c:v libx264 -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
-
-                try {
-                    Set-Location $targetPath
-                    Invoke-Expression $FFmpegCommand
-                } catch {
-                    Write-Warning "Erreur lors de la création du fichier $SongName : $_"
-
+                if($ImageName -eq $null){
                     #Nom de la musique (avec format)
                     $DestSongName = $_.Name+$SongExtension
 
@@ -146,7 +117,67 @@ else{
                     #On la copie au format d'origine
                     Copy-Item -Path $SongPath -Destination $SongDestPath -Force
                 }
+                else {
+                    #Nom de la musique (avec format)
+                    $DestSongName = $_.Name+".mp4"
+
+                    #Chemin complet vers la musique
+                    $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+
+                    #Chemin de destination complet vers la musique
+                    $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
+
+                    #Chemin de la cover
+                    $CoverPath = Join-Path -Path $LevelPath -ChildPath $ImageName
+
+                    #On la copie au format mp4 avec la cover
+                    # Commande FFmpeg pour créer un fichier MP4
+                    $FFmpegCommand = ".\ffmpeg -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -c:v libx264 -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+
+                    try {
+                        Set-Location $targetPath
+                        Invoke-Expression $FFmpegCommand
+                    } catch {
+                        Write-Warning "Erreur lors de la création du fichier $SongName : $_"
+
+                        #Nom de la musique (avec format)
+                        $DestSongName = $_.Name+$SongExtension
+
+                        #Chemin complet vers la musique
+                        $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+
+                        #Chemin de destination complet vers la musique
+                        $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
+
+                        #On la copie au format d'origine
+                        Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+                    }
+                }
+            }
+        }
+        else{
+            #Copie de la musique
+            if ($SongName -eq $null) {
+                #Chemin complet vers la musique
+                $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+
+                Write-Output "Pas de musique pour : "$SongPath
+            }
+            else {
+                #Nom de la musique (avec format)
+                $DestSongName = $_.Name+$SongExtension
+
+                #Chemin complet vers la musique
+                $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+
+                #Chemin de destination complet vers la musique
+                $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
+
+                #On la copie au format d'origine
+                Copy-Item -Path $SongPath -Destination $SongDestPath -Force
             }
         }
     }
 }
+
+Write-Host "Execution terminée"
