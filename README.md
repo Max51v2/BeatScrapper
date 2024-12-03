@@ -2,9 +2,9 @@ EN :
 If the text doesn't display properly, try to open it in the project and click on "Raw"
 
 I) Presentation
- This project purpose is to export Beat Saber maps in a specified folder (you can see exemple in the project)
+ This project's purpose is to export Beat Saber maps in a specified folder (you can see an exemple in the project).
  You can choose if you want the cover or not to export it faster (without the cover : .egg |  with the cover : .mp4).
- This script only run on windows.
+ This script only runs on windows.
 
 II) How to install the project ?
  1) Clone the repository or download it (releases tab)
