@@ -1,85 +1,87 @@
-########################################################################## À Modifier ##########################################################################
-#Chemin d'accès des maps BS
-$BSPath = "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomLevels"
+########################################################################## Variables ##########################################################################
+#Beat Saber maps path
+$BSPath = "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomMultiplayerLevels"
 
-#Fichier où les musiques seront transferées
+#Folder path where the songs will be stored
 $DestPath = "C:\Users\Maxime\Downloads\test"
 
-#Cover : "true" | "false"
-#"false" plus rapide
+#Include cover : "true" | "false"
+#"false" is faster as it just copies the file
 $IncludeCover = "true"
 
-#Codec par défaut (s'il y'a une erreur de codec avec ffmpeg) : "true" | "false"
-#"false" par défaut
-$OverrideCodec = "true"
+#Default codec (if ffmpeg gives you a codec error (or nothing happens)) : "true" | "false"
+#"false" uses the adapted GPU HW codec
+$OverrideCodec = "false"
 
-#################################################################################################################################################################
+################################################################################################################################################################
 
 
 Clear-Host
 
-#Vérification de la présence des chemins dans le script (maps et dest)
+#Check if the map and destination path were completed (null by default)
 if (($BSPath -eq $null) -or ($DestPath -eq $null) -or ($BSPath -eq "") -or ($DestPath -eq "")) {
-    if (($BSPath -eq $null) -or ($DestPath -eq "")){
-        Write-Warning "Le chemin n'a pas été renseigné : DestPath"
+    #Ask the user to fill them
+    if (($DestPath -eq $null) -or ($DestPath -eq "")){
+        Write-Warning "Please define the following path in th script : DestPath"
     }
-    else {
-        Write-Warning "Le chemin n'a pas été renseigné : BSPath"
+    if (($BSPath -eq $null) -or ($BSPath -eq "")) {
+        Write-Warning "Please define the following path in th script : BSPath"
     }
     
-    #Arrêt du script
+    #Stops the script
     Break
 }
 else{
-    #Vérification de l'éxitance du chemin spécifié
+    #Check if BSPath exist in the FS
     if (-not (Test-Path $BSPath)) {
-        Write-Warning "Le chemin est introuvable : $BSPath"
+        Write-Warning "Path doesn't exist : $BSPath"
 
-        #Arrêt du script
+        #Stops the script
         Break
     }
 
-    #Nom du programme à chercher
-    $ProgramName = "ffmpeg.exe"
-
-    #Répertoire principal des packages Winget
+    #Winget packet path
     $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
 
-    #Recherche du fichier dans les sous-répertoires
+    #Search if the program is present (folder here)
+    $ProgramName = "ffmpeg.exe"
     $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
 
+    #If the file exist then ffmpeg is installed
     if ($targetPath) {
-        #Rien
+        #Nothing
     } else {
-        Write-Output "Installation de ffmpeg"
+        Write-Output "Installing ffmpeg"
 
-        #Installation de FFmpeg s'il ne l'est pas
+        #Install ffmpeg
         winget install ffmpeg
 
-        #Répertoire principal des packages Winget
+        #Winget packet path
         $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
 
-        #Recherche du fichier dans les sous-répertoires
+        #Search if the program is present (folder here)
         $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
 
+        #Check if ffmpeg was installed
         if ($targetPath) {
-            #ffmpeg isntallé
+            #ffmpeg installed
         }
         else {
-            Write-Warning "Problème d'installation de ffmpeg"
+            Write-Warning "There was a problem with the ffmpeg installation"
 
-            #Arrêt du script
+            #Stops the script
             Break
         }
     }
 
-    #Définition du codec (ceux pour amd et nvidia sont supporté depuis très longtemps (pré adaptateur vidéo lol) donc je ne vérifie pas s'il est dispo sur le GPU)
+    #Defining the codec that will be used (if $IncludeCover is set to "true")
     $Preset = "false"
     Set-Location $targetPath
     $AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
     $Nvidia = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
+    $Intel = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
 
-    #Définition du codec utilisé par ffmpeg
+    #I used the GPU HW codec, especially H264 since it should be supported by near anything (that's why there is an $OverrideCodec in case the GPU doesn't support it therefore using software H264 (CPU))
     if($OverrideCodec -eq "true"){
         $Codec = "libx264"
         $Preset = "true"
@@ -92,88 +94,90 @@ else{
         elseif( -not ($Nvidia -eq $null)){
             $Codec = "h264_nvenc"
         }
+        elseif( -not ($Intel -eq $null)){
+            $Codec = "h264_qsv"
+        }
         else{
             $Codec = "libx264"
             $Preset = "true"
         }
     }
     
+    #moving to ffmpeg executable folder
+    Set-Location $targetPath
 
-    #Récupération du nombre de maps
+    #Fetching how much maps there is so we can display the progression
     $MusicNumber=0
     Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{$MusicNumber=$MusicNumber+1}
 
-    #Listage des maps
+    #For every maps
     $c=0
     Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
-        #Chemin de la map
+        #Map path
         $LevelPath = Join-Path -Path $BSPath -ChildPath $_.Name
 
-        #Réinitialisation des variables
+        #reseting variables
         $SongName = $null
         $SongExtension = $null
         $ImageName = $null
         $ImageExtension = $null
 
-        #Listage du contenu de la map
+        #For every file in the map folder
         Get-ChildItem -LiteralPath $LevelPath | ForEach-Object {
-            #Récupération du nom et de l'extension de la musique (format egg)
-            if ($_.Extension -ieq ".egg" || $_.Extension -ieq ".wav") {
+            #Fetching the song
+            if ($_.Extension -match "^\.(egg|wav|mp3)$") {
                 $SongName = $_.Name
                 $SongExtension = $_.Extension
             }
 
-            # Récupération du nom et de l'extension de l'image (formats jpg, png, jpeg, jfif)
-            if ($_.Extension -match "^\.(jpg|png|jpeg|jfif)$") {
-                #Récupération du nom de l'image et ext si null ou le nom="cover"
+            #Fetching the cover (the one named cover or the first image as there is instances where there is multiple images)
+            if ($_.Extension -match "^\.(jpg|png|jpeg|jfif|tiff|bmp)$") {
                 if(($ImageName -eq $null) -or ($_.Name -eq "cover")){
                     $ImageName = $_.Name
                     $ImageExtension = $_.Extension
                 }
-                
             }
         }
 
         $c=$c+1
 
-        #Inclue la cover ou non
+        #If the user chooses to include the cover
         if ($IncludeCover -eq "true") {
-            #Copie de la musique
+            #If the song doesn't exist
             if ($SongName -eq $null) {
-                #Chemin complet vers la musique
+                #Full path of the song
                 $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
-                Write-Output "Pas de musique pour : "$SongPath
+                Write-Warning "No music at this path : "$SongPath
             }
             else {
                 if($ImageName -eq $null){
-                    #Nom de la musique (avec format)
+                    #Music name + format
                     $DestSongName = $_.Name+$SongExtension
 
-                    #Chemin complet vers la musique
+                    #Full path of the song
                     $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
-                    #Chemin de destination complet vers la musique
+                    #Full path of where the song will be copied
                     $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
 
-                    #On la copie au format d'origine
+                    #Copy the song
                     Copy-Item -Path $SongPath -Destination $SongDestPath -Force
                 }
                 else {
-                    #Nom de la musique (avec format)
+                    #Music name + format
                     $DestSongName = $_.Name+".mp4"
 
-                    #Chemin complet vers la musique
+                    #Full path of the song
                     $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
-                    #Chemin de destination complet vers la musique
+                    #Full path of where the song will be copied
                     $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
 
-                    #Chemin de la cover
+                    #Cover path
                     $CoverPath = Join-Path -Path $LevelPath -ChildPath $ImageName
 
-                    #On la copie au format mp4 avec la cover
-                    # Commande FFmpeg pour créer un fichier MP4
+                    #FFmpeg command
                     if( -not ($AMD -eq $null)){
                         $FFmpegCommand = ".\ffmpeg -loglevel quiet -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
                     }
@@ -185,25 +189,27 @@ else{
                     }
                     
                     try {
-                        Write-Host "$c/$MusicNumber - Export de : $DestSongName"
+                        Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
 
-                        Set-Location $targetPath
+                        
                         Invoke-Expression $FFmpegCommand
                     } catch {
-                        Write-Warning "Erreur lors de la création du fichier $SongName : $_"
+                        Write-Warning "Couldn't create $SongName : $_"
+                        Write-Host "Fallback to .egg"
 
-                        #Nom de la musique (avec format)
+                        #Music name + format
                         $DestSongName = $_.Name+$SongExtension
 
-                        #Chemin complet vers la musique
+                        #Full path of the song
                         $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
-                        #Chemin de destination complet vers la musique
+                        #Full path of where the song will be copied
                         $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
 
-                        #On la copie au format d'origine
-                        Write-Host "$c/$MusicNumber - Export de : $DestSongName"
+                        #Copy the song
                         Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+
+                        Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
                     }
                 }
             }
@@ -211,27 +217,28 @@ else{
         else{
             #Copie de la musique
             if ($SongName -eq $null) {
-                #Chemin complet vers la musique
+                #Full path of the song
                 $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
-                Write-Output "Pas de musique pour : "$SongPath
+                Write-Output "No music at this path : "$SongPath
             }
             else {
-                #Nom de la musique (avec format)
+                #Music name + format
                 $DestSongName = $_.Name+$SongExtension
 
-                #Chemin complet vers la musique
+                #Full path of the song
                 $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
 
-                #Chemin de destination complet vers la musique
+                #Full path of where the song will be copied
                 $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
 
-                #On la copie au format d'origine
-                Write-Host "$c/$MusicNumber - Export de : $DestSongName"
+                #Copy the song
                 Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+
+                Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
             }
         }
     }
 }
 
-Write-Host "Execution terminée"
+Write-Host "Done"
