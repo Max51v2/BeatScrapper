@@ -9,17 +9,22 @@ $DestPath = "C:\Users\Maxime\Downloads\test"
 #"false" plus rapide
 $IncludeCover = "true"
 
+#Codec par défaut (s'il y'a une erreur de codec avec ffmpeg) : "true" | "false"
+#"false" par défaut
+$OverrideCodec = "true"
+
 #################################################################################################################################################################
 
 
+Clear-Host
 
 #Vérification de la présence des chemins dans le script (maps et dest)
 if (($BSPath -eq $null) -or ($DestPath -eq $null) -or ($BSPath -eq "") -or ($DestPath -eq "")) {
     if (($BSPath -eq $null) -or ($DestPath -eq "")){
-        Write-Host "Le chemin n'a pas été renseigné : DestPath"
+        Write-Warning "Le chemin n'a pas été renseigné : DestPath"
     }
     else {
-        Write-Host "Le chemin n'a pas été renseigné : BSPath"
+        Write-Warning "Le chemin n'a pas été renseigné : BSPath"
     }
     
     #Arrêt du script
@@ -28,7 +33,7 @@ if (($BSPath -eq $null) -or ($DestPath -eq $null) -or ($BSPath -eq "") -or ($Des
 else{
     #Vérification de l'éxitance du chemin spécifié
     if (-not (Test-Path $BSPath)) {
-        Write-Host "Le chemin est introuvable : $BSPath"
+        Write-Warning "Le chemin est introuvable : $BSPath"
 
         #Arrêt du script
         Break
@@ -44,7 +49,7 @@ else{
     $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
 
     if ($targetPath) {
-        Write-Output "Chemin d'installation trouvé : $targetPath"
+        #Rien
     } else {
         Write-Output "Installation de ffmpeg"
 
@@ -61,14 +66,45 @@ else{
             #ffmpeg isntallé
         }
         else {
-            Write-Host "Problème d'installation de ffmpeg"
+            Write-Warning "Problème d'installation de ffmpeg"
 
             #Arrêt du script
             Break
         }
     }
 
+    #Définition du codec (ceux pour amd et nvidia sont supporté depuis très longtemps (pré adaptateur vidéo lol) donc je ne vérifie pas s'il est dispo sur le GPU)
+    $Preset = "false"
+    Set-Location $targetPath
+    $AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
+    $Nvidia = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
+
+    #Définition du codec utilisé par ffmpeg
+    if($OverrideCodec -eq "true"){
+        $Codec = "libx264"
+        $Preset = "true"
+    }
+    else{
+        if( -not ($AMD -eq $null)){
+            $Codec = "h264_amf"
+            $Preset = "true"
+        }
+        elseif( -not ($Nvidia -eq $null)){
+            $Codec = "h264_nvenc"
+        }
+        else{
+            $Codec = "libx264"
+            $Preset = "true"
+        }
+    }
+    
+
+    #Récupération du nombre de maps
+    $MusicNumber=0
+    Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{$MusicNumber=$MusicNumber+1}
+
     #Listage des maps
+    $c=0
     Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
         #Chemin de la map
         $LevelPath = Join-Path -Path $BSPath -ChildPath $_.Name
@@ -89,10 +125,16 @@ else{
 
             # Récupération du nom et de l'extension de l'image (formats jpg, png, jpeg, jfif)
             if ($_.Extension -match "^\.(jpg|png|jpeg|jfif)$") {
-                $ImageName = $_.Name
-                $ImageExtension = $_.Extension
+                #Récupération du nom de l'image et ext si null ou le nom="cover"
+                if(($ImageName -eq $null) -or ($_.Name -eq "cover")){
+                    $ImageName = $_.Name
+                    $ImageExtension = $_.Extension
+                }
+                
             }
         }
+
+        $c=$c+1
 
         #Inclue la cover ou non
         if ($IncludeCover -eq "true") {
@@ -132,9 +174,19 @@ else{
 
                     #On la copie au format mp4 avec la cover
                     # Commande FFmpeg pour créer un fichier MP4
-                    $FFmpegCommand = ".\ffmpeg -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -c:v libx264 -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
-
+                    if( -not ($AMD -eq $null)){
+                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+                    }
+                    elseif($Preset -eq "true"){
+                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+                    }
+                    else {
+                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+                    }
+                    
                     try {
+                        Write-Host "$c/$MusicNumber - Export de : $DestSongName"
+
                         Set-Location $targetPath
                         Invoke-Expression $FFmpegCommand
                     } catch {
@@ -150,6 +202,7 @@ else{
                         $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
 
                         #On la copie au format d'origine
+                        Write-Host "$c/$MusicNumber - Export de : $DestSongName"
                         Copy-Item -Path $SongPath -Destination $SongDestPath -Force
                     }
                 }
@@ -174,6 +227,7 @@ else{
                 $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
 
                 #On la copie au format d'origine
+                Write-Host "$c/$MusicNumber - Export de : $DestSongName"
                 Copy-Item -Path $SongPath -Destination $SongDestPath -Force
             }
         }
