@@ -1,15 +1,40 @@
-#Installation de FFmpeg s'il ne l'est pas
-winget install ffmpeg
+########################################################################## À Modifier ##########################################################################
 
 #Chemin d'accès des maps BS
-$BSPath = "C:\Program Files (x86)\Steam\steamapps\common\Beat Saber\Beat Saber_Data\CustomLevels"
+$BSPath = "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomMultiplayerLevels"
 
 #Fichier où les musiques seront transferées
 $DestPath = "C:\Users\Maxime\Downloads\test"
 
+#################################################################################################################################################################
+
+
+#Nom du programme à chercher
+$ProgramName = "ffmpeg.exe"
+
+#Répertoire principal des packages Winget
+$wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
+
+#Recherche du fichier dans les sous-répertoires
+$targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+
+if ($targetPath) {
+    Write-Output "Chemin d'installation trouvé : $targetPath"
+} else {
+    Write-Output "Installation de ffmpeg"
+
+    #Installation de FFmpeg s'il ne l'est pas
+    winget install ffmpeg
+
+    #Répertoire principal des packages Winget
+    $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
+
+    #Recherche du fichier dans les sous-répertoires
+    $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+}
+
 #Listage des maps
 Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
-    echo "#############"
     #Chemin de la map
     $LevelPath = Join-Path -Path $BSPath -ChildPath $_.Name
 
@@ -44,8 +69,6 @@ Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
         $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
 
         #On la copie au format d'origine
-        Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+        Copy-Item -Path $SongPath -Destination $SongDestPath -Force  
     }
 }
-
-Write-Host "En cas d'erreur de FFmpeg, merci de fermer et rouvrir powershell"
