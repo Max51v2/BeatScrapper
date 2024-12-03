@@ -7,7 +7,7 @@ I) Presentation
  This script only run on windows.
 
 II) How to install the project ?
- 1) Clone the repository or download it (release tab)
+ 1) Clone the repository or download it (releases tab)
  2) Change the script options (at the begining of the script) available here "[project path]\BeatScrapper.ps1"
  3) Launch the script
    set-executionpolicy unrestricted
