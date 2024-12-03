@@ -1,16 +1,21 @@
+#Author : Maxime VALLET
+#Version : 2.0
+
 ########################################################################## Variables ##########################################################################
+
 #Beat Saber maps path
-$BSPath = "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomMultiplayerLevels"
+$BSPath = ""
 
 #Folder path where the songs will be stored
-$DestPath = "C:\Users\Maxime\Downloads\test"
+$DestPath = ""
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
 $IncludeCover = "true"
 
-#Default codec (if ffmpeg gives you a codec error (or nothing happens)) : "true" | "false"
-#"false" uses the adapted GPU HW codec
+#Define if the code uses the default codec : "true" | "false"
+#"false" make ffmpeg use adapted GPU HW codec (recommended)
+#"true"  make ffmpeg use the software codec (if ffmpeg gives errors or if the songs are empty (caused by the error))
 $OverrideCodec = "false"
 
 ################################################################################################################################################################
@@ -18,7 +23,7 @@ $OverrideCodec = "false"
 
 Clear-Host
 
-#Check if the map and destination path were completed (null by default)
+#Check if the map and destination path were completed ("" by default)
 if (($BSPath -eq $null) -or ($DestPath -eq $null) -or ($BSPath -eq "") -or ($DestPath -eq "")) {
     #Ask the user to fill them
     if (($DestPath -eq $null) -or ($DestPath -eq "")){
