@@ -1,13 +1,13 @@
 #Author : Maxime VALLET
-#Version : 2.0
+#Version : 3.0
 
 ########################################################################## Variables ##########################################################################
 
 #Beat Saber maps path
-$BSPath = ""
+$BSPath = "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomLevels"
 
 #Folder path where the songs will be stored
-$DestPath = ""
+$DestPath = "C:\Users\Maxime\Downloads\test"
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -124,6 +124,7 @@ else{
         #reseting variables
         $SongName = $null
         $SongExtension = $null
+        $FolderName = $_.Name
         $ImageName = $null
         $ImageExtension = $null
 
@@ -131,7 +132,7 @@ else{
         Get-ChildItem -LiteralPath $LevelPath | ForEach-Object {
             #Fetching the song
             if ($_.Extension -match "^\.(egg|wav|mp3)$") {
-                $SongName = $_.Name
+                $SongName = $_.BaseName
                 $SongExtension = $_.Extension
             }
 
@@ -150,18 +151,24 @@ else{
         if ($IncludeCover -eq "true") {
             #If the song doesn't exist
             if ($SongName -eq $null) {
+                #Source music name + format
+                $SourceSongName = $SongName+$SongExtension
+                
                 #Full path of the song
-                $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+                $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
                 Write-Warning "No music at this path : "$SongPath
             }
             else {
                 if($ImageName -eq $null){
-                    #Music name + format
-                    $DestSongName = $_.Name+$SongExtension
+                    #Dest music name + format
+                    $DestSongName = $FolderName+".egg"
+
+                    #Source music name + format
+                    $SourceSongName = $SongName+$SongExtension
 
                     #Full path of the song
-                    $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+                    $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
                     #Full path of where the song will be copied
                     $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
@@ -170,11 +177,14 @@ else{
                     Copy-Item -Path $SongPath -Destination $SongDestPath -Force
                 }
                 else {
-                    #Music name + format
-                    $DestSongName = $_.Name+".mp4"
+                    #Dest music name + format
+                    $DestSongName = $FolderName+".mp4"
+
+                    #Source music name + format
+                    $SourceSongName = $SongName+$SongExtension
 
                     #Full path of the song
-                    $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+                    $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
                     #Full path of where the song will be copied
                     $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
@@ -184,43 +194,66 @@ else{
 
                     #FFmpeg command
                     if( -not ($AMD -eq $null)){
-                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
                     }
                     elseif($Preset -eq "true"){
-                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
                     }
                     else {
-                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
                     }
                     
                     try {
-                        Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
+                        #Check if the song already exists
+                        if (Test-Path $SongDestPath){
+                            Write-Host "$c/$MusicNumber - Skipped (Exist) : $DestSongName"
+                        }
+                        else{
+                            Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
 
-                        
-                        Invoke-Expression $FFmpegCommand
+                            Invoke-Expression $FFmpegCommand
+
+                            if ($LASTEXITCODE -ne 0) {
+                                throw "FFmpeg error : $LASTEXITCODE"
+                            }
+                        }
                     } catch {
-                        Write-Warning "Couldn't create $SongName : $_"
-                        Write-Host "Fallback to .egg"
+                        #Deletion of the file (empty here)
+                        if(Test-Path $SongDestPath){
+                            Remove-Item -LiteralPath $SongDestPath
+                        }
 
-                        #Music name + format
-                        $DestSongName = $_.Name+$SongExtension
+                        #Dest music name + format
+                        $DestSongName = $FolderName+".egg"
+
+                        #Source music name + format
+                        $SourceSongName = $SongName+$SongExtension
 
                         #Full path of the song
-                        $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+                        $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
                         #Full path of where the song will be copied
                         $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
 
-                        #Copy the song
-                        Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+                        Write-Warning "Couldn't create $SongName : $_"
+                        Write-Host "Fallback to .egg"
 
-                        Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
+                        #Check if the song already exists
+                        if (Test-Path $SongDestPath){
+                            Write-Host "$c/$MusicNumber - Skipped (Exist) : $DestSongName"
+                        }
+                        else{
+                            #Copy the song
+                            Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+
+                            Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
+                        }
                     }
                 }
             }
         }
         else{
-            #Copie de la musique
+            #Copy the song
             if ($SongName -eq $null) {
                 #Full path of the song
                 $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
@@ -228,19 +261,28 @@ else{
                 Write-Output "No music at this path : "$SongPath
             }
             else {
-                #Music name + format
-                $DestSongName = $_.Name+$SongExtension
+                #Dest music name + format
+                $DestSongName = $FolderName+".egg"
+
+                #Source music name + format
+                $SourceSongName = $SongName+$SongExtension
 
                 #Full path of the song
-                $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+                $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
                 #Full path of where the song will be copied
                 $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
 
-                #Copy the song
-                Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+                #Check if the song already exists
+                if (Test-Path $SongDestPath){
+                    Write-Host "$c/$MusicNumber - Skipped (Exist) : $DestSongName"
+                }
+                else{
+                    #Copy the song
+                    Copy-Item -Path $SongPath -Destination $SongDestPath -Force
 
-                Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
+                    Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
+                }
             }
         }
     }
