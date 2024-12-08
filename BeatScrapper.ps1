@@ -84,7 +84,7 @@ else{
     Set-Location $targetPath
     $AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
     $Nvidia = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
-    $Intel = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
+    $Intel = Get-CimInstance win32_VideoController | Where-Object {$_ -match "intel"} | Select-Object Description
 
     #I used the GPU HW codec, especially H264 since it should be supported by near anything (that's why there is an $OverrideCodec in case the GPU doesn't support it therefore using software H264 (CPU))
     if($OverrideCodec -eq "true"){
