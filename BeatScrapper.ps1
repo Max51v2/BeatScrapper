@@ -4,10 +4,10 @@
 ########################################################################## Variables ##########################################################################
 
 #Beat Saber maps path
-$BSPath = "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomLevels"
+$BSPath = ""
 
 #Folder path where the songs will be stored
-$DestPath = "C:\Users\Maxime\Downloads\test"
+$DestPath = ""
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
