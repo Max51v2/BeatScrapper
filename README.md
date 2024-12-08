@@ -1,8 +1,11 @@
 EN :
 If the text doesn't display properly, try to open it in the project and click on "Raw"
 
+WARNING :
+You should never run a PowerShell script until you have read it made sure it is safe to do so !
+
 I) Presentation
- This project's purpose is to export Beat Saber maps in a specified folder (you can see an exemple in the project).
+ This project's purpose is to export Beat Saber maps' songs in a specified folder (you can see an exemple in the project).
  You can choose if you want the cover or not to export it faster (without the cover : .egg |  with the cover : .mp4).
  This script only runs on windows.
 
@@ -21,6 +24,9 @@ III) Who should you contact if you have a question or an issue ?
 
 FR :
 En cas de problèmes d'affichage, merci d'ouvrir la doc depuis le projet et de séléctionner l'affichage de type "Raw"
+
+ATTENTION :
+N'exécutez jamais de script PowerShell avant d'avoir lu son contenu et que vous ayez déterminé que cela soit sans danger !
 
 I) Présentation
  Ce projet permet d'exporter les musiques des maps de Beat Saber dans un dossier spécifié (exemple dans le projet).
