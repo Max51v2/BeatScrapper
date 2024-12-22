@@ -1,5 +1,5 @@
 #Author : Maxime VALLET
-#Version : 3.0
+#Version : 4.0
 
 ########################################################################## Variables ##########################################################################
 
@@ -13,6 +13,10 @@ $DestPath = ""
 #"false" is faster as it just copies the file
 $IncludeCover = "true"
 
+#Export format (has to be supported by FFmpeg and be a video)
+#Only work when $IncludeCover="true"
+$Format="mp4"
+
 #Define if the code uses the default codec : "true" | "false"
 #"false" make ffmpeg use adapted GPU HW codec (recommended)
 #"true"  make ffmpeg use the software codec (if ffmpeg gives errors or if the songs are empty (caused by the error))
@@ -22,6 +26,38 @@ $OverrideCodec = "false"
 
 
 Clear-Host
+
+
+function doSongExist {
+    param (
+        [string]$DestPath,
+        [string]$SongName
+    )
+    
+    #Check if the song already exists (no matter the format)
+    $SongExist = "false"
+    $SongDestNameTest = "none"
+    #List every songs in the destination folder and check if the name is identical to the song we're exporting
+    Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
+        #Fetching the song's name in the dest folder
+        $SongNameTest = $_ -replace '\.[^.]+$'
+
+        #If the name of the current music is the same than the one we are exporting
+        if ($SongNameTest -eq $SongName){
+            $SongExist = "true"
+            $SongDestNameTest = $_
+        }
+    }
+
+    $SongExistObj = [PSCustomObject]@{
+        SongExist = $SongExist
+        SongDestNameTest = $SongDestNameTest
+    }
+
+    return $SongExistObj
+}
+
+
 
 #Check if the map and destination path were completed ("" by default)
 if (($BSPath -eq $null) -or ($DestPath -eq $null) -or ($BSPath -eq "") -or ($DestPath -eq "")) {
@@ -198,18 +234,10 @@ else{
                     $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
 
                     #Check if the song already exists (no matter the format)
-                    $SongExist = "false"
-                    #List every songs in the destination folder and check if the name is identical to the song we're exporting
-                    Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
-                        #Fetching the song's name in the dest folder
-                        $SongNameTest = $_ -replace '\.[^.]+$'
+                    $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
+                    $SongExist = $SongExistObj.SongExist
+                    $SongDestNameTest = $SongExistObj.SongDestNameTest
 
-                        #If the name of the current music is the same than the one we are exporting
-                        if ($SongNameTest -eq $SongName){
-                            $SongExist = "true"
-                            $SongDestNameTest = $_
-                        }
-                    }
                     #If the music already exist, we skip it
                     if ($SongExist -eq "true"){
                         Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
@@ -223,7 +251,7 @@ else{
                 }
                 else {
                     #Dest music name + format
-                    $SongDestName = "$SongName.mp4"
+                    $SongDestName = "$SongName.$Format"
 
                     #Source music name + format
                     $SourceSongName = "$SongFileName.$SongFileExtension"
@@ -247,18 +275,10 @@ else{
                     
                     try {
                         #Check if the song already exists (no matter the format)
-                        $SongExist = "false"
-                        #List every songs in the destination folder and check if the name is identical to the song we're exporting
-                        Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
-                            #Fetching the song's name in the dest folder
-                            $SongNameTest = $_ -replace '\.[^.]+$'
+                        $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
+                        $SongExist = $SongExistObj.SongExist
+                        $SongDestNameTest = $SongExistObj.SongDestNameTest
 
-                            #If the name of the current music is the same than the one we are exporting
-                            if ($SongNameTest -eq $SongName){
-                                $SongExist = "true"
-                                $SongDestNameTest = $_
-                            }
-                        }
                         #If the music already exist, we skip it
                         if ($SongExist -eq "true"){
                             Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
@@ -294,18 +314,10 @@ else{
                         Write-Host "Fallback to .egg"
 
                         #Check if the song already exists (no matter the format)
-                        $SongExist = "false"
-                        #List every songs in the destination folder and check if the name is identical to the song we're exporting
-                        Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
-                            #Fetching the song's name in the dest folder
-                            $SongNameTest = $_ -replace '\.[^.]+$'
+                        $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
+                        $SongExist = $SongExistObj.SongExist
+                        $SongDestNameTest = $SongExistObj.SongDestNameTest
 
-                            #If the name of the current music is the same than the one we are exporting
-                            if ($SongNameTest -eq $SongName){
-                                $SongExist = "true"
-                                $SongDestNameTest = $_
-                            }
-                        }
                         #If the music already exist, we skip it
                         if ($SongExist -eq "true"){
                             Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
@@ -342,18 +354,10 @@ else{
                 $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
 
                 #Check if the song already exists (no matter the format)
-                $SongExist = "false"
-                #List every songs in the destination folder and check if the name is identical to the song we're exporting
-                Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
-                    #Fetching the song's name in the dest folder
-                    $SongNameTest = $_ -replace '\.[^.]+$'
+                $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
+                $SongExist = $SongExistObj.SongExist
+                $SongDestNameTest = $SongExistObj.SongDestNameTest
 
-                    #If the name of the current music is the same than the one we are exporting
-                    if ($SongNameTest -eq $SongName){
-                        $SongExist = "true"
-                        $SongDestNameTest = $_
-                    }
-                }
                 #If the music already exist, we skip it
                 if ($SongExist -eq "true"){
                     Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
