@@ -115,44 +115,65 @@ else{
     $MusicNumber=0
     Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{$MusicNumber=$MusicNumber+1}
 
+    #Create the target path if it doesn't exist
+    if (-not (Test-Path $DestPath)) {
+        mkdir $DestPath | Out-Null
+    }
+    
+
     #For every maps
     $c=0
     Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
+        $c=$c+1
+
         #Map path
         $LevelPath = Join-Path -Path $BSPath -ChildPath $_.Name
 
-        #reseting variables
-        $SongName = $null
-        $SongExtension = $null
-        $FolderName = $_.Name
-        $ImageName = $null
-        $ImageExtension = $null
+        #Path of the info file that contains the cover and song names
+        $SongInfoPath = Join-Path -Path $LevelPath -ChildPath "Info.dat"
 
-        #For every file in the map folder
-        Get-ChildItem -LiteralPath $LevelPath | ForEach-Object {
-            #Fetching the song
-            if ($_.Extension -match "^\.(egg|wav|mp3)$") {
-                $SongName = $_.BaseName
-                $SongExtension = $_.Extension
-            }
-
-            #Fetching the cover (the one named cover or the first image as there is instances where there is multiple images)
-            if ($_.Extension -match "^\.(jpg|png|jpeg|jfif|tiff|bmp)$") {
-                if(($ImageName -eq $null) -or ($_.Name -eq "cover")){
-                    $ImageName = $_.Name
-                    $ImageExtension = $_.Extension
-                }
-            }
+        #Check if the Info.dat file exist
+        if (-not (Test-Path $SongInfoPath)) {
+            $FolderName = $_.Name
+            Write-Warning "$c/$MusicNumber - Skipped (no Info.dat) : $FolderName"
+            
+            return
         }
 
-        $c=$c+1
+        #Fetching the song's name in the map folder
+        $Song = Get-Content $SongInfoPath | Select-String -Pattern '\"_songFilename\": \".*\"'
+        $Song = [regex]::Matches($Song, '[a-z|A-Z]+') | Select-Object Value
+        $SongFileName = $Song[1].Value
+        $SongFileExtension = $Song[2].Value
+
+        #Fetching the song's real name
+        $Song = Get-Content $SongInfoPath | Select-String -Pattern '\"_songName\": \".*\"'
+        $Song = [regex]::Matches($Song, '[a-z|A-Z]+') | Select-Object Value
+        $SongOriginalName = $Song[1].Value
+
+        #Fetching the song's Author name
+        $Song = Get-Content $SongInfoPath | Select-String -Pattern '\"_songAuthorName\": \".*\"'
+        $Song = [regex]::Matches($Song, '[a-z|A-Z]+') | Select-Object Value
+        $SongAuthorName = $Song[1].Value
+
+        #Final song's name
+        $SongName = "$SongAuthorName - $SongOriginalName"
+
+        #Fetching the cover's name
+        $Image = Get-Content $SongInfoPath | Select-String -Pattern '\"_coverImageFilename\": \".*\"'
+        $Image = [regex]::Matches($Image, '[a-z|A-Z]+') | Select-Object Value
+        $ImageName = $Image[1].Value
+        $ImageExtension = $Image[2].Value
+
+        #Cover path
+        $CoverPath = Join-Path -Path $LevelPath -ChildPath "$ImageName.$ImageExtension"
 
         #If the user chooses to include the cover
         if ($IncludeCover -eq "true") {
             #If the song doesn't exist
-            if ($SongName -eq $null) {
+            if ($SongFileName -eq $null) {
                 #Source music name + format
-                $SourceSongName = $SongName+$SongExtension
+                $SourceSongName = "$SongFileName.$SongExtension"
                 
                 #Full path of the song
                 $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
@@ -160,37 +181,58 @@ else{
                 Write-Warning "No music at this path : "$SongPath
             }
             else {
-                if($ImageName -eq $null){
+                if(-not (Test-Path $CoverPath)){
+                    Write-Warning "No cover for $SongName"
+                    Write-Host "Fallback to .egg"
+                    
                     #Dest music name + format
-                    $DestSongName = $FolderName+".egg"
+                    $SongDestName = "$SongName.egg"
 
                     #Source music name + format
-                    $SourceSongName = $SongName+$SongExtension
+                    $SourceSongName = "$SongFileName.$SongFileExtension"
 
                     #Full path of the song
                     $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
                     #Full path of where the song will be copied
-                    $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
+                    $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
 
-                    #Copy the song
-                    Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+                    #Check if the song already exists (no matter the format)
+                    $SongExist = "false"
+                    #List every songs in the destination folder and check if the name is identical to the song we're exporting
+                    Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
+                        #Fetching the song's name in the dest folder
+                        $SongNameTest = $_ -replace '\.[^.]+$'
+
+                        #If the name of the current music is the same than the one we are exporting
+                        if ($SongNameTest -eq $SongName){
+                            $SongExist = "true"
+                            $SongDestNameTest = $_
+                        }
+                    }
+                    #If the music already exist, we skip it
+                    if ($SongExist -eq "true"){
+                        Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
+                    }
+                    else{
+                        #Copy the song
+                        Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+
+                        Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
+                    }
                 }
                 else {
                     #Dest music name + format
-                    $DestSongName = $FolderName+".mp4"
+                    $SongDestName = "$SongName.mp4"
 
                     #Source music name + format
-                    $SourceSongName = $SongName+$SongExtension
+                    $SourceSongName = "$SongFileName.$SongFileExtension"
 
                     #Full path of the song
                     $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
                     #Full path of where the song will be copied
-                    $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
-
-                    #Cover path
-                    $CoverPath = Join-Path -Path $LevelPath -ChildPath $ImageName
+                    $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
 
                     #FFmpeg command
                     if( -not ($AMD -eq $null)){
@@ -204,12 +246,25 @@ else{
                     }
                     
                     try {
-                        #Check if the song already exists
-                        if (Test-Path $SongDestPath){
-                            Write-Host "$c/$MusicNumber - Skipped (Exist) : $DestSongName"
+                        #Check if the song already exists (no matter the format)
+                        $SongExist = "false"
+                        #List every songs in the destination folder and check if the name is identical to the song we're exporting
+                        Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
+                            #Fetching the song's name in the dest folder
+                            $SongNameTest = $_ -replace '\.[^.]+$'
+
+                            #If the name of the current music is the same than the one we are exporting
+                            if ($SongNameTest -eq $SongName){
+                                $SongExist = "true"
+                                $SongDestNameTest = $_
+                            }
+                        }
+                        #If the music already exist, we skip it
+                        if ($SongExist -eq "true"){
+                            Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
                         }
                         else{
-                            Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
+                            Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
 
                             Invoke-Expression $FFmpegCommand
 
@@ -224,29 +279,42 @@ else{
                         }
 
                         #Dest music name + format
-                        $DestSongName = $FolderName+".egg"
+                        $SongDestName = "$SongName.egg"
 
                         #Source music name + format
-                        $SourceSongName = $SongName+$SongExtension
+                        $SourceSongName = "$SongFileName.$SongFileExtension"
 
                         #Full path of the song
                         $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
                         #Full path of where the song will be copied
-                        $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
+                        $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
 
-                        Write-Warning "Couldn't create $SongName : $_"
+                        Write-Warning "Couldn't create $SongDestName : $_"
                         Write-Host "Fallback to .egg"
 
-                        #Check if the song already exists
-                        if (Test-Path $SongDestPath){
-                            Write-Host "$c/$MusicNumber - Skipped (Exist) : $DestSongName"
+                        #Check if the song already exists (no matter the format)
+                        $SongExist = "false"
+                        #List every songs in the destination folder and check if the name is identical to the song we're exporting
+                        Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
+                            #Fetching the song's name in the dest folder
+                            $SongNameTest = $_ -replace '\.[^.]+$'
+
+                            #If the name of the current music is the same than the one we are exporting
+                            if ($SongNameTest -eq $SongName){
+                                $SongExist = "true"
+                                $SongDestNameTest = $_
+                            }
+                        }
+                        #If the music already exist, we skip it
+                        if ($SongExist -eq "true"){
+                            Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
                         }
                         else{
                             #Copy the song
                             Copy-Item -Path $SongPath -Destination $SongDestPath -Force
 
-                            Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
+                            Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
                         }
                     }
                 }
@@ -254,38 +322,53 @@ else{
         }
         else{
             #Copy the song
-            if ($SongName -eq $null) {
+            if ($SongFileName -eq $null) {
                 #Full path of the song
-                $SongPath = Join-Path -Path $LevelPath -ChildPath $SongName
+                $SongPath = Join-Path -Path $LevelPath -ChildPath "$SongFileName.egg"
 
-                Write-Output "No music at this path : "$SongPath
+                Write-Output "No music at this path : $SongPath.egg"
             }
             else {
                 #Dest music name + format
-                $DestSongName = $FolderName+".egg"
+                $SongDestName = "$SongName.egg"
 
                 #Source music name + format
-                $SourceSongName = $SongName+$SongExtension
+                $SourceSongName = "$SongFileName.$SongFileExtension"
 
                 #Full path of the song
                 $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
                 #Full path of where the song will be copied
-                $SongDestPath = Join-Path -Path $DestPath -ChildPath $DestSongName
+                $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
 
-                #Check if the song already exists
-                if (Test-Path $SongDestPath){
-                    Write-Host "$c/$MusicNumber - Skipped (Exist) : $DestSongName"
+                #Check if the song already exists (no matter the format)
+                $SongExist = "false"
+                #List every songs in the destination folder and check if the name is identical to the song we're exporting
+                Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
+                    #Fetching the song's name in the dest folder
+                    $SongNameTest = $_ -replace '\.[^.]+$'
+
+                    #If the name of the current music is the same than the one we are exporting
+                    if ($SongNameTest -eq $SongName){
+                        $SongExist = "true"
+                        $SongDestNameTest = $_
+                    }
+                }
+                #If the music already exist, we skip it
+                if ($SongExist -eq "true"){
+                    Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
                 }
                 else{
                     #Copy the song
                     Copy-Item -Path $SongPath -Destination $SongDestPath -Force
 
-                    Write-Host "$c/$MusicNumber - Exporting : $DestSongName"
+                    Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
                 }
             }
         }
     }
 }
 
+Write-Host ""
 Write-Host "Done"
+Write-Host ""
