@@ -1,13 +1,15 @@
 #Author : Maxime VALLET
-#Version : 4.0
+#Version : 5.0
 
 ########################################################################## Variables ##########################################################################
 
-#Beat Saber maps path
-$BSPath = ""
+#Beat Saber maps path(s)
+#Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
+#Format : $BSPath = @("Path1", ..., "Path N")
+$BSPath = @("C:\Users\Maxime\Downloads\BSSongs", "C:\Users\Maxime\Downloads\BSSongs2")
 
 #Folder path where the songs will be stored
-$DestPath = ""
+$DestPath = "C:\Users\Maxime\Downloads\test"
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -59,111 +61,135 @@ function doSongExist {
 
 
 
-#Check if the map and destination path were completed ("" by default)
-if (($BSPath -eq $null) -or ($DestPath -eq $null) -or ($BSPath -eq "") -or ($DestPath -eq "")) {
+#Check if the map and destination path were completed (empty by default)
+if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
     #Ask the user to fill them
     if (($DestPath -eq $null) -or ($DestPath -eq "")){
-        Write-Warning "Please define the following path in th script : DestPath"
+        Write-Error "Please define the following path in th script : DestPath"
     }
-    if (($BSPath -eq $null) -or ($BSPath -eq "")) {
-        Write-Warning "Please define the following path in th script : BSPath"
+    if ($BSPath.Length -eq 0) {
+        Write-Error "Please define the following path(s) in th script : BSPath"
     }
     
     #Stops the script
     Break
 }
-else{
-    #Check if BSPath exist in the FS
-    if (-not (Test-Path $BSPath)) {
-        Write-Warning "Path doesn't exist : $BSPath"
+
+
+#Check if the format is correct
+$checkFormat = ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern "  $Format  "
+if($checkFormat -eq $null){
+    Write-Error "The format isn't supported by FFmpeg : $Format"
+
+    #Stops the script
+    Break
+}
+
+#Check if all the paths in the var BSPath exist in the FS
+$BSPathIndex=0
+while ($BSPathIndex -le ($BSPath.Length-1)){
+    if (-not (Test-Path $BSPath[$BSPathIndex])) {
+        $WrongPath = $BSPath[$BSPathIndex]
+        Write-Error "Path doesn't exist : $WrongPath"
+        Write-Host "Please check your inputs in the BSPath variable"
+        Write-Host ""
 
         #Stops the script
         Break
     }
+    $BSPathIndex = $BSPathIndex+1
+}
+
+#Winget packet path
+$wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
+
+#Search if the program is present (folder here)
+$ProgramName = "ffmpeg.exe"
+$targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+
+#If the file exist then ffmpeg is installed
+if ($targetPath) {
+    #Nothing
+} else {
+    Write-Output "Installing ffmpeg"
+
+    #Install ffmpeg
+    winget install ffmpeg
 
     #Winget packet path
     $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
 
     #Search if the program is present (folder here)
-    $ProgramName = "ffmpeg.exe"
     $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
 
-    #If the file exist then ffmpeg is installed
+    #Check if ffmpeg was installed
     if ($targetPath) {
-        #Nothing
-    } else {
-        Write-Output "Installing ffmpeg"
-
-        #Install ffmpeg
-        winget install ffmpeg
-
-        #Winget packet path
-        $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
-
-        #Search if the program is present (folder here)
-        $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
-
-        #Check if ffmpeg was installed
-        if ($targetPath) {
-            #ffmpeg installed
-        }
-        else {
-            Write-Warning "There was a problem with the ffmpeg installation"
-
-            #Stops the script
-            Break
-        }
+        #ffmpeg installed
     }
+    else {
+        Write-Error "There was a problem with the ffmpeg installation"
 
-    #Defining the codec that will be used (if $IncludeCover is set to "true")
-    $Preset = "false"
-    Set-Location $targetPath
-    $AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
-    $Nvidia = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
-    $Intel = Get-CimInstance win32_VideoController | Where-Object {$_ -match "intel"} | Select-Object Description
+        #Stops the script
+        Break
+    }
+}
 
-    #I used the GPU HW codec, especially H264 since it should be supported by near anything (that's why there is an $OverrideCodec in case the GPU doesn't support it therefore using software H264 (CPU))
-    if($OverrideCodec -eq "true"){
+#Defining the codec that will be used (if $IncludeCover is set to "true")
+$Preset = "false"
+Set-Location $targetPath
+$AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
+$Nvidia = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
+$Intel = Get-CimInstance win32_VideoController | Where-Object {$_ -match "intel"} | Select-Object Description
+
+#I used the GPU HW codec, especially H264 since it should be supported by near anything (that's why there is an $OverrideCodec in case the GPU doesn't support it therefore using software H264 (CPU))
+if($OverrideCodec -eq "true"){
+    $Codec = "libx264"
+    $Preset = "true"
+}
+else{
+    if( -not ($AMD -eq $null)){
+        $Codec = "h264_amf"
+        $Preset = "true"
+    }
+    elseif( -not ($Nvidia -eq $null)){
+        $Codec = "h264_nvenc"
+    }
+    elseif( -not ($Intel -eq $null)){
+        $Codec = "h264_qsv"
+    }
+    else{
         $Codec = "libx264"
         $Preset = "true"
     }
-    else{
-        if( -not ($AMD -eq $null)){
-            $Codec = "h264_amf"
-            $Preset = "true"
-        }
-        elseif( -not ($Nvidia -eq $null)){
-            $Codec = "h264_nvenc"
-        }
-        elseif( -not ($Intel -eq $null)){
-            $Codec = "h264_qsv"
-        }
-        else{
-            $Codec = "libx264"
-            $Preset = "true"
-        }
-    }
+}
     
-    #moving to ffmpeg executable folder
-    Set-Location $targetPath
+#moving to ffmpeg executable folder
+Set-Location $targetPath
 
-    #Fetching how much maps there is so we can display the progression
-    $MusicNumber=0
-    Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{$MusicNumber=$MusicNumber+1}
+#Fetching how much maps there is so we can display the progression
+$MusicNumber=0
+$BSPathIndex=0
+while ($BSPathIndex -le ($BSPath.Length-1)){
+    Get-ChildItem -LiteralPath $BSPath[$BSPathIndex] -Directory | ForEach-Object{$MusicNumber=$MusicNumber+1}
 
-    #Create the target path if it doesn't exist
-    if (-not (Test-Path $DestPath)) {
-        mkdir $DestPath | Out-Null
-    }
+    $BSPathIndex = $BSPathIndex+1
+}
+
+#Create the target path if it doesn't exist
+if (-not (Test-Path $DestPath)) {
+    mkdir $DestPath | Out-Null
+}
     
 
-    #For every maps
-    $c=0
-    Get-ChildItem -LiteralPath $BSPath -Directory | ForEach-Object{
+#For every maps
+$BSPathIndex=0
+$c=0
+while ($BSPathIndex -le ($BSPath.Length-1)){
+    Get-ChildItem -LiteralPath $BSPath[$BSPathIndex] -Directory | ForEach-Object{
         $c=$c+1
 
         #Map path
-        $LevelPath = Join-Path -Path $BSPath -ChildPath $_.Name
+        $LevelPath = Join-Path -Path $BSPath[$BSPathIndex] -ChildPath $_.Name
 
         #Path of the info file that contains the cover and song names
         $SongInfoPath = Join-Path -Path $LevelPath -ChildPath "Info.dat"
@@ -172,34 +198,34 @@ else{
         if (-not (Test-Path $SongInfoPath)) {
             $FolderName = $_.Name
             Write-Warning "$c/$MusicNumber - Skipped (no Info.dat) : $FolderName"
-            
+                
             return
         }
 
         #Fetching the song's name in the map folder
-        $Song = Get-Content $SongInfoPath | Select-String -Pattern '\"_songFilename\": \".*\"'
-        $Song = [regex]::Matches($Song, '[a-z|A-Z]+') | Select-Object Value
-        $SongFileName = $Song[1].Value
-        $SongFileExtension = $Song[2].Value
+        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $Song = $json._songFilename
+        $SongFileName = $Song -replace '\.[^.]+$'
+        $SongFileExtension =  $Song -replace '.*\.'
 
         #Fetching the song's real name
-        $Song = Get-Content $SongInfoPath | Select-String -Pattern '\"_songName\": \".*\"'
-        $Song = [regex]::Matches($Song, '[a-z|A-Z]+') | Select-Object Value
-        $SongOriginalName = $Song[1].Value
+        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $Song = $json._songName
+        $SongOriginalName = ($Song -replace '\.[^.]+$','') -replace '[<>:"/\\|?*]', ''
 
         #Fetching the song's Author name
-        $Song = Get-Content $SongInfoPath | Select-String -Pattern '\"_songAuthorName\": \".*\"'
-        $Song = [regex]::Matches($Song, '[a-z|A-Z]+') | Select-Object Value
-        $SongAuthorName = $Song[1].Value
+        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $Song = $json._songAuthorName
+        $SongAuthorName = $Song -replace '\.[^.]+$'
 
         #Final song's name
         $SongName = "$SongAuthorName - $SongOriginalName"
 
         #Fetching the cover's name
-        $Image = Get-Content $SongInfoPath | Select-String -Pattern '\"_coverImageFilename\": \".*\"'
-        $Image = [regex]::Matches($Image, '[a-z|A-Z]+') | Select-Object Value
-        $ImageName = $Image[1].Value
-        $ImageExtension = $Image[2].Value
+        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $Image = $json._coverImageFilename
+        $ImageName = $Image -replace '\.[^.]+$'
+        $ImageExtension =  $Image -replace '.*\.'
 
         #Cover path
         $CoverPath = Join-Path -Path $LevelPath -ChildPath "$ImageName.$ImageExtension"
@@ -210,7 +236,7 @@ else{
             if ($SongFileName -eq $null) {
                 #Source music name + format
                 $SourceSongName = "$SongFileName.$SongExtension"
-                
+                    
                 #Full path of the song
                 $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
@@ -220,7 +246,7 @@ else{
                 if(-not (Test-Path $CoverPath)){
                     Write-Warning "No cover for $SongName"
                     Write-Host "Fallback to .egg"
-                    
+                        
                     #Dest music name + format
                     $SongDestName = "$SongName.egg"
 
@@ -272,7 +298,7 @@ else{
                     else {
                         $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
                     }
-                    
+                        
                     try {
                         #Check if the song already exists (no matter the format)
                         $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
@@ -371,6 +397,8 @@ else{
             }
         }
     }
+
+    $BSPathIndex = $BSPathIndex+1
 }
 
 Write-Host ""
