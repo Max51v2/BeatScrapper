@@ -6,7 +6,7 @@ You should never run a PowerShell script until you have read it made sure it is 
 
 I) Presentation
  This project's purpose is to export Beat Saber maps' songs in a specified folder (you can see an exemple in the project).
- You can choose if you want the cover or not to export it faster (without the cover : .egg |  with the cover : .mp4).
+ You can choose if you want the cover or not to export it faster (without the cover : .egg |  with the cover : format of your choice).
  This script only runs on windows.
 
 II) How to install the project ?
@@ -30,7 +30,7 @@ N'exécutez jamais de script PowerShell avant d'avoir lu son contenu et que vous
 
 I) Présentation
  Ce projet permet d'exporter les musiques des maps de Beat Saber dans un dossier spécifié (exemple dans le projet).
- Vous pouvez séléctionner l'ajout ou non de la cover à la musique (si non : .egg | si oui : .mp4).
+ Vous pouvez séléctionner l'ajout ou non de la cover à la musique (si non : .egg | si oui : format au choix).
  Ce script ne fonctionne que sur Windows.
 
 II) Comment installer le projet ?
