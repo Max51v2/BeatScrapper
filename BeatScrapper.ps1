@@ -1,15 +1,15 @@
 #Author : Maxime VALLET
-#Version : 5.0
+#Version : 5.1
 
 ########################################################################## Variables ##########################################################################
 
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @()
+$BSPath = @("C:\Users\Maxime\Downloads\BSSongs")
 
 #Folder path where the songs will be stored
-$DestPath = ""
+$DestPath = "C:\Users\Maxime\Downloads\test"
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -71,6 +71,10 @@ if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
         Write-Error "Please define the following path(s) in th script : BSPath"
     }
     
+    Write-Host ""
+    Write-Host "Done"
+    Write-Host ""
+
     #Stops the script
     Break
 }
@@ -80,6 +84,10 @@ if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
 $checkFormat = ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern "  $Format  "
 if($checkFormat -eq $null){
     Write-Error "The format isn't supported by FFmpeg : $Format"
+
+    Write-Host ""
+    Write-Host "Done"
+    Write-Host ""
 
     #Stops the script
     Break
@@ -92,6 +100,9 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
         $WrongPath = $BSPath[$BSPathIndex]
         Write-Error "Path doesn't exist : $WrongPath"
         Write-Host "Please check your inputs in the BSPath variable"
+        Write-Host ""
+
+        Write-Host "Done"
         Write-Host ""
 
         #Stops the script
@@ -129,6 +140,10 @@ if ($targetPath) {
     else {
         Write-Error "There was a problem with the ffmpeg installation"
 
+        Write-Host ""
+        Write-Host "Done"
+        Write-Host ""
+
         #Stops the script
         Break
     }
@@ -136,7 +151,6 @@ if ($targetPath) {
 
 #Defining the codec that will be used (if $IncludeCover is set to "true")
 $Preset = "false"
-Set-Location $targetPath
 $AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
 $Nvidia = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
 $Intel = Get-CimInstance win32_VideoController | Where-Object {$_ -match "intel"} | Select-Object Description
@@ -162,6 +176,17 @@ else{
         $Preset = "true"
     }
 }
+
+#Codec info
+if($Codec -eq "libx264"){
+    Write-Warning "Using Software codec : $Codec"
+    Write-Host "If this isn't intentional, please report this issue to @Max51v2"
+}
+else {
+    Write-Host "Using Hardware codec : $Codec"
+}
+Write-Host ""
+
     
 #moving to ffmpeg executable folder
 Set-Location $targetPath
@@ -185,6 +210,10 @@ if (-not (Test-Path $DestPath)) {
 $BSPathIndex=0
 $c=0
 while ($BSPathIndex -le ($BSPath.Length-1)){
+    #Name of the folder we're exporting songs from
+    $FolderName = Split-Path $BSPath[$BSPathIndex] -Leaf
+    Write-Host "Exporting from folder : $FolderName"
+
     Get-ChildItem -LiteralPath $BSPath[$BSPathIndex] -Directory | ForEach-Object{
         $c=$c+1
 
