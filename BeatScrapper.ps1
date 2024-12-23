@@ -1,5 +1,5 @@
 #Author : Maxime VALLET
-#Version : 5.1
+#Version : 5.8
 
 ########################################################################## Variables ##########################################################################
 
@@ -24,12 +24,25 @@ $Format="mp4"
 #"true"  make ffmpeg use the software codec (if ffmpeg gives errors or if the songs are empty (caused by the error))
 $OverrideCodec = "false"
 
+
+###### ADVANCED ######
+
+#Default HW codecs used by FFmpeg
+#Warning : some codecs use different flags so you could encounter errors if you modify them (that's why there is a $Preset var)
+$AMDCodec = "h264_amf"
+$NvidiaCodec = "h264_nvenc"
+$IntelCodec = "h264_qsv"
+
+#Default SW codec used by FFmpeg if the GPU isn't from the 3 major brands or if $OverrideCoded="true"
+$SWCodec = "libx264"
+
 ################################################################################################################################################################
 
 
 Clear-Host
 
 
+######################### Functions #########################
 function doSongExist {
     param (
         [string]$DestPath,
@@ -58,6 +71,132 @@ function doSongExist {
 
     return $SongExistObj
 }
+
+
+function exportSong {
+    param (
+        [string]$SongFileName,
+        [string]$SongFileExtension,
+        [string]$SongName,
+        [string]$LevelPath,
+        [string]$DestPath,
+        [string]$c,
+        [string]$MusicNumber,
+        [string]$Format,
+        [string]$CoverPath,
+        [string]$AMD,
+        [string]$Preset
+    )
+    
+
+    #Dest music name + format
+    $SongDestName = "$SongName.$Format"
+
+    #Source music name + format
+    $SourceSongName = "$SongFileName.$SongFileExtension"
+
+    #Full path of the song
+    $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
+
+    #Full path of where the song will be copied
+    $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
+
+    #Check if the song already exists (no matter the format)
+    $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
+    $SongExist = $SongExistObj.SongExist
+    $SongDestNameTest = $SongExistObj.SongDestNameTest
+
+    #EGG export
+    if($Format -ieq "egg"){
+        #If the music already exist, we skip it
+        if ($SongExist -eq "true"){
+            Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
+
+            return
+        }
+
+        #Check if the song exists in the map folder
+        if (-not (Test-Path $SongPath)) {
+            Write-Warning "No music at this path : $SongPath"
+            Write-Host "$c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
+
+            return
+        }
+
+        Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
+
+        #Copy the song
+        Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+    }
+    #Video export
+    else {
+        #If the cover doesn't exist
+        if(-not (Test-Path $CoverPath)){
+            Write-Warning "No cover for $SongName"
+            Write-Host "Fallback to .egg"
+
+            #Relaunching the function with the EGG format
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset
+
+            return
+        }
+        #If the cover exist
+        else {
+            #FFmpeg command
+            if( -not ($AMD -eq $null)){
+                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+            }
+            elseif($Preset -eq "true"){
+                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+            }
+            else {
+                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+            }
+
+            #Block try-catch to catch FFmepg errors
+            try {
+                #If the music already exist, we skip it
+                if ($SongExist -eq "true"){
+                    Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
+
+                    return
+                }
+
+                #Check if the song exists in the map folder
+                if (-not (Test-Path $SongPath)) {
+                    Write-Warning "No music at this path : $SongPath"
+                    Write-Host "$c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
+
+                    return
+                }
+
+                Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
+
+                #Command to export the song
+                Invoke-Expression $FFmpegCommand
+
+                #If the execution of the commande resulted in an error, we show it to the user
+                if ($LASTEXITCODE -ne 0) {
+                    throw "FFmpeg error : $LASTEXITCODE"
+                }
+            } 
+            catch {
+                #Deletion of the file if it exists (would be empty in that case)
+                if(Test-Path $SongDestPath){
+                    Remove-Item -LiteralPath $SongDestPath
+                }
+
+                Write-Warning "Couldn't create $SongDestName : $_"
+                Write-Host "Fallback to .egg"
+
+                #Relaunching the function with the EGG format
+                exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset
+            }
+        }
+    }
+}
+#############################################################
+
 
 
 
@@ -91,6 +230,11 @@ if($checkFormat -eq $null){
 
     #Stops the script
     Break
+}
+
+#Change the format to EGG if Include cover is false
+if($IncludeCover -eq "false"){
+    $Format = "egg"
 }
 
 #Check if all the paths in the var BSPath exist in the FS
@@ -157,22 +301,22 @@ $Intel = Get-CimInstance win32_VideoController | Where-Object {$_ -match "intel"
 
 #I used the GPU HW codec, especially H264 since it should be supported by near anything (that's why there is an $OverrideCodec in case the GPU doesn't support it therefore using software H264 (CPU))
 if($OverrideCodec -eq "true"){
-    $Codec = "libx264"
+    $Codec = $SWCodec
     $Preset = "true"
 }
 else{
     if( -not ($AMD -eq $null)){
-        $Codec = "h264_amf"
+        $Codec = $AMDCodec
         $Preset = "true"
     }
     elseif( -not ($Nvidia -eq $null)){
-        $Codec = "h264_nvenc"
+        $Codec = $NvidiaCodec
     }
     elseif( -not ($Intel -eq $null)){
-        $Codec = "h264_qsv"
+        $Codec = $IntelCodec
     }
     else{
-        $Codec = "libx264"
+        $Codec = $SWCodec
         $Preset = "true"
     }
 }
@@ -186,10 +330,6 @@ else {
     Write-Host "Using Hardware codec : $Codec"
 }
 Write-Host ""
-
-    
-#moving to ffmpeg executable folder
-Set-Location $targetPath
 
 #Fetching how much maps there is so we can display the progression
 $MusicNumber=0
@@ -205,8 +345,10 @@ if (-not (Test-Path $DestPath)) {
     mkdir $DestPath | Out-Null
 }
     
+#moving to ffmpeg executable folder
+Set-Location $targetPath
 
-#For every maps
+#For every BS Folder
 $BSPathIndex=0
 $c=0
 while ($BSPathIndex -le ($BSPath.Length-1)){
@@ -214,6 +356,7 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
     $FolderName = Split-Path $BSPath[$BSPathIndex] -Leaf
     Write-Host "Exporting from folder : $FolderName"
 
+    #For every maps in the BS Folder
     Get-ChildItem -LiteralPath $BSPath[$BSPathIndex] -Directory | ForEach-Object{
         $c=$c+1
 
@@ -226,7 +369,7 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
         #Check if the Info.dat file exist
         if (-not (Test-Path $SongInfoPath)) {
             $FolderName = $_.Name
-            Write-Warning "$c/$MusicNumber - Skipped (no Info.dat) : $FolderName"
+            Write-Warning "$c/$MusicNumber - Skipped (No Info.dat) : $FolderName"
                 
             return
         }
@@ -261,169 +404,12 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
 
         #If the user chooses to include the cover
         if ($IncludeCover -eq "true") {
-            #If the song doesn't exist
-            if ($SongFileName -eq $null) {
-                #Source music name + format
-                $SourceSongName = "$SongFileName.$SongExtension"
-                    
-                #Full path of the song
-                $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
-
-                Write-Warning "No music at this path : "$SongPath
-            }
-            else {
-                if(-not (Test-Path $CoverPath)){
-                    Write-Warning "No cover for $SongName"
-                    Write-Host "Fallback to .egg"
-                        
-                    #Dest music name + format
-                    $SongDestName = "$SongName.egg"
-
-                    #Source music name + format
-                    $SourceSongName = "$SongFileName.$SongFileExtension"
-
-                    #Full path of the song
-                    $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
-
-                    #Full path of where the song will be copied
-                    $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
-
-                    #Check if the song already exists (no matter the format)
-                    $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
-                    $SongExist = $SongExistObj.SongExist
-                    $SongDestNameTest = $SongExistObj.SongDestNameTest
-
-                    #If the music already exist, we skip it
-                    if ($SongExist -eq "true"){
-                        Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
-                    }
-                    else{
-                        #Copy the song
-                        Copy-Item -Path $SongPath -Destination $SongDestPath -Force
-
-                        Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
-                    }
-                }
-                else {
-                    #Dest music name + format
-                    $SongDestName = "$SongName.$Format"
-
-                    #Source music name + format
-                    $SourceSongName = "$SongFileName.$SongFileExtension"
-
-                    #Full path of the song
-                    $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
-
-                    #Full path of where the song will be copied
-                    $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
-
-                    #FFmpeg command
-                    if( -not ($AMD -eq $null)){
-                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
-                    }
-                    elseif($Preset -eq "true"){
-                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
-                    }
-                    else {
-                        $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
-                    }
-                        
-                    try {
-                        #Check if the song already exists (no matter the format)
-                        $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
-                        $SongExist = $SongExistObj.SongExist
-                        $SongDestNameTest = $SongExistObj.SongDestNameTest
-
-                        #If the music already exist, we skip it
-                        if ($SongExist -eq "true"){
-                            Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
-                        }
-                        else{
-                            Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
-
-                            Invoke-Expression $FFmpegCommand
-
-                            if ($LASTEXITCODE -ne 0) {
-                                throw "FFmpeg error : $LASTEXITCODE"
-                            }
-                        }
-                    } catch {
-                        #Deletion of the file (empty here)
-                        if(Test-Path $SongDestPath){
-                            Remove-Item -LiteralPath $SongDestPath
-                        }
-
-                        #Dest music name + format
-                        $SongDestName = "$SongName.egg"
-
-                        #Source music name + format
-                        $SourceSongName = "$SongFileName.$SongFileExtension"
-
-                        #Full path of the song
-                        $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
-
-                        #Full path of where the song will be copied
-                        $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
-
-                        Write-Warning "Couldn't create $SongDestName : $_"
-                        Write-Host "Fallback to .egg"
-
-                        #Check if the song already exists (no matter the format)
-                        $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
-                        $SongExist = $SongExistObj.SongExist
-                        $SongDestNameTest = $SongExistObj.SongDestNameTest
-
-                        #If the music already exist, we skip it
-                        if ($SongExist -eq "true"){
-                            Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
-                        }
-                        else{
-                            #Copy the song
-                            Copy-Item -Path $SongPath -Destination $SongDestPath -Force
-
-                            Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
-                        }
-                    }
-                }
-            }
+            #Export with cover
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset
         }
         else{
-            #Copy the song
-            if ($SongFileName -eq $null) {
-                #Full path of the song
-                $SongPath = Join-Path -Path $LevelPath -ChildPath "$SongFileName.egg"
-
-                Write-Output "No music at this path : $SongPath.egg"
-            }
-            else {
-                #Dest music name + format
-                $SongDestName = "$SongName.egg"
-
-                #Source music name + format
-                $SourceSongName = "$SongFileName.$SongFileExtension"
-
-                #Full path of the song
-                $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
-
-                #Full path of where the song will be copied
-                $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
-
-                #Check if the song already exists (no matter the format)
-                $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
-                $SongExist = $SongExistObj.SongExist
-                $SongDestNameTest = $SongExistObj.SongDestNameTest
-
-                #If the music already exist, we skip it
-                if ($SongExist -eq "true"){
-                    Write-Host "$c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
-                }
-                else{
-                    #Copy the song
-                    Copy-Item -Path $SongPath -Destination $SongDestPath -Force
-
-                    Write-Host "$c/$MusicNumber - Exporting : $SongDestName"
-                }
-            }
+            #Export without cover
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset
         }
     }
 
