@@ -1,5 +1,5 @@
 #Author : Maxime VALLET
-#Version : 5.8
+#Version : 6.0
 
 ########################################################################## Variables ##########################################################################
 
@@ -251,7 +251,7 @@ function DisplayProgression {
         #If there is more lines available than there is to display
         if($CLIHeight -gt $FullMessage.Length){
             #Fill with blank until there is 
-            while(($CLIHeight - $FullMessage.Length) -ge 0){
+            while(($CLIHeight - $FullMessage.Length) -gt 0){
                 $LinesToAdd += 1
 
                 $CLIHeight -= 1
