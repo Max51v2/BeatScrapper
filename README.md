@@ -6,13 +6,21 @@ You should never run a PowerShell script until you have read it made sure it is 
 
 I) Presentation
  This project's purpose is to export Beat Saber maps' songs in a specified folder (you can see an exemple in the project).
- You can choose if you want the cover or not to export it faster (without the cover : .egg |  with the cover : format of your choice).
- This script only runs on windows.
+ Functionnalities :
+  - Export songs from multiple maps folders
+  - Export to EGG or your prefered video format with the cover included in the video
+  - Choose your own codec
+  - ✨ progression bar + history of latest songs exported in real time (fit in the entirety of the PowerShell window) ✨
+ This script only works on Windows.
 
-II) How to install the project ?
- 1) Clone the repository or download it (releases tab)
- 2) Change the script options (at the begining of the script) available here "[project path]\BeatScrapper.ps1"
- 3) Launch the script
+II) How to execute the project ?
+ 1) 1st option
+  a) Copy-Paste in Notepad and change the script options
+  b) Copy-Paste from Notepad into Powershell and press Enter
+ 2) 2nd option
+  a) Clone the repository or download it (releases tab)
+  b) Change the script options (at the begining of the script) available here "[project path]\BeatScrapper.ps1"
+  c) Launch the script
    set-executionpolicy unrestricted
    [project path]\BeatScrapper.ps1
    Set-executionpolicy Allsigned
@@ -30,15 +38,23 @@ N'exécutez jamais de script PowerShell avant d'avoir lu son contenu et que vous
 
 I) Présentation
  Ce projet permet d'exporter les musiques des maps de Beat Saber dans un dossier spécifié (exemple dans le projet).
- Vous pouvez séléctionner l'ajout ou non de la cover à la musique (si non : .egg | si oui : format au choix).
+ Fonctionnalités :
+  - Export des musiques depuis plusieur dossiers contenant des maps
+  - Export au format EGG ou à votre format vidéo préféré contenant la cover en fond
+  - Choisissez votre propre codec
+  - ✨ barre de progression + historique des musiques exportés en temps réel (prends l'intégralité de la fenêtre PowerShell) ✨
  Ce script ne fonctionne que sur Windows.
 
-II) Comment installer le projet ?
- 1) Clôner le répertoire ou télécharger le projet (onglet releases)
- 2) Changer les options (début du script) dans "[Chemin répertoire]\BeatScrapper.ps1"
- 3) Lancer le script
+II) Comment exécuter le projet ?
+ 1) 1ère option
+  a) Copier-coller le script dans Notepad et changez les options
+  b) Coper-coller le contenu de Notepad dans PowerShell et appuyez sur Entrer
+ 2) 2ème option
+  a) Clonez le répertoire ou téléchargez-le (onglet releases)
+  b) Changez les options du script (au début du script) disponible ici "[chemin du project]\BeatScrapper.ps1"
+  c) Lancez le script
    set-executionpolicy unrestricted
-   [Chemin répertoire]\BeatScrapper.ps1
+   [chemin du project]\BeatScrapper.ps1
    Set-executionpolicy Allsigned
 
 III) Qui contacter en cas de question ?
