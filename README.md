@@ -10,7 +10,8 @@ I) Presentation
   - Export songs from multiple maps folders
   - Export to EGG or your prefered video format with the cover included in the video
   - Choose your own codec
-  - ✨ progression bar + history of latest songs exported in real time (fit in the entirety of the PowerShell window) ✨
+  - ✨smooth animations in real time : progression bar + history of latest songs exported + activity indicator (spinner) ✨
+   => fit in the entirety of the PowerShell window
  This script only works on Windows.
 
 II) How to execute the project ?
@@ -42,7 +43,8 @@ I) Présentation
   - Export des musiques depuis plusieur dossiers contenant des maps
   - Export au format EGG ou à votre format vidéo préféré contenant la cover en fond
   - Choisissez votre propre codec
-  - ✨ barre de progression + historique des musiques exportés en temps réel (prends l'intégralité de la fenêtre PowerShell) ✨
+  - ✨animations fluides et en temps réel : barre de progression + historique des dernière musiques exportées + indicateur d'activité (spinner) ✨
+   => fit in the entirety of the PowerShell window
  Ce script ne fonctionne que sur Windows.
 
 II) Comment exécuter le projet ?
