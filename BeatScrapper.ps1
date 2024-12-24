@@ -1,15 +1,15 @@
 #Author : Maxime VALLET
-#Version : 7.0
+#Version : 7.4
 
 ########################################################################## Variables ##########################################################################
 
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @("C:\Users\Maxime\Downloads\BSSongs")
+$BSPath = @()
 
 #Folder path where the songs will be stored
-$DestPath = "C:\Users\Maxime\Downloads\test"
+$DestPath = ""
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -43,13 +43,14 @@ $SWCodec = "libx264"
 
 
 ######################### Functions #########################
+
+#Check if the song already exists (no matter the format)
 function doSongExist {
     param (
         [string]$DestPath,
         [string]$SongName
     )
     
-    #Check if the song already exists (no matter the format)
     $SongExist = "false"
     $SongDestNameTest = "none"
     #List every songs in the destination folder and check if the name is identical to the song we're exporting
@@ -73,6 +74,7 @@ function doSongExist {
 }
 
 
+#Export the song to either EGG or a choosen video format
 function exportSong {
     param (
         [string]$SongFileName,
@@ -115,7 +117,7 @@ function exportSong {
         if ($SongExist -eq "true"){
             $global:FullMessage += "H: $c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
 
-            #Refresh messages
+            #Refresh Content displayed in the shell
             GetProgression
             Write-Host $global:Content
 
@@ -128,7 +130,7 @@ function exportSong {
             $global:NBWarnings +=1
             $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
-            #Refresh messages
+            #Refresh Content displayed in the shell
             GetProgression
             Write-Host $global:Content
 
@@ -137,7 +139,7 @@ function exportSong {
 
         $global:FullMessage += "H: $c/$MusicNumber - Exporting : $SongDestName"
 
-        #Refresh messages
+        #Refresh Content displayed in the shell
         GetProgression
         Write-Host $global:Content
         
@@ -152,7 +154,7 @@ function exportSong {
             $global:NBWarnings +=1
             $global:FullMessage += "H: Fallback to .egg"
 
-            #Refresh messages
+            #Refresh Content displayed in the shell
             GetProgression
             Write-Host $global:Content
 
@@ -165,13 +167,13 @@ function exportSong {
         else {
             #FFmpeg command
             if( -not ($AMD -eq $null)){
-                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
+                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
             }
             elseif($Preset -eq "true"){
-                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
+                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
             }
             else {
-                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
+                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
             }
 
             #Check if the song exists in the map folder
@@ -180,7 +182,7 @@ function exportSong {
                 $global:NBWarnings +=1
                 $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
-                #Refresh messages
+                #Refresh Content displayed in the shell
                 GetProgression
                 Write-Host $global:Content
 
@@ -191,7 +193,7 @@ function exportSong {
             if ($SongExist -eq "true"){
                 $global:FullMessage += "H: $c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
 
-                #Refresh messages
+                #Refresh Content displayed in the shell
                 GetProgression
                 Write-Host $global:Content
 
@@ -200,7 +202,7 @@ function exportSong {
 
             $global:FullMessage += "H: $c/$MusicNumber - Exporting : $SongDestName"
 
-            #Refresh messages
+            #Refresh Content displayed in the shell
             GetProgression
 
             #Block try-catch to catch FFmepg errors
@@ -226,11 +228,15 @@ function exportSong {
                 #job state
                 $jobstat = Get-Job -Name "$c" | Select-Object State
 
-                #While the job is runnin, remplace le pipe placed by DiplayProgression in the last message (repeat with next chars)
+                #Contains the spinner's pattern (can be changed without other modifications (first is "|"" though => Look for line 377 to change it))
                 $CharList = @("/", "-", "\", "|", "/", "-", "\", "|")
                 $CharIndex = 0
+
                 Clear-Host
+
+                #While the job is runnin, remplace le pipe placed by DiplayProgression in the last message (repeat with next chars)
                 while ($jobstat.State -ne "Completed") {
+                    #Refresh Content displayed in the shell
                     Write-Host $global:Content
 
                     #job state
@@ -244,34 +250,51 @@ function exportSong {
                         $LastCharIndex = $CharIndex - 1
                     }
 
+                    #Replacing previous char with the next one in $CharList
                     $Previous = $CharList[$LastCharIndex]
                     $Next = $CharList[$CharIndex]
                     $global:Content = $global:Content -replace [regex]::Escape(".$Format $Previous"), ".$Format $Next"
                     $global:Content = $global:Content -replace [regex]::Escape("$Previous $c/"), "$Next $c/"
 
-
-                    Start-Sleep -Seconds 0.1
-
+                    #Index of the next char
                     if($CharIndex -eq ($CharList.Length - 1)){
                         $CharIndex = 0
                     }
                     else {
                         $CharIndex += 1
                     }
+
+                    #Refreshing time
+                    Start-Sleep -Seconds 0.1
                 }
 
-                # Check for errors
+                #if there is a log file (imply that there is an error)
                 if (Test-Path $ErrorLog) {
+                    #Get FFmpeg errors
                     $errors = Get-Content $ErrorLog
-                    if ($errors) {
-                        $global:FullMessage += "W: Couldn't create $SongDestName : $_"
+                    Remove-Item $ErrorLog
 
-                        #Trigger catch clause
+                    #If there is errors
+                    if ($errors -ne $null) {
+                        $d=0
+                        #Fill FullMessage with the script error then the FFmpeg error
+                        foreach ($line in $errors.Split("`n")) {
+                            if($d -eq 0){
+                                $global:FullMessage += "W: Couldn't create $SongDestName"
+                            }
+                            else {
+                                $global:FullMessage += "=> $line"
+                            }
+                            
+
+                            $d += 1
+                        }
+                        
+                        
+                        #Trigger catch clause (=> EGG fallback)
                         throw
                     }
-                    Remove-Item $ErrorLog
                 }
-                
             } 
             catch {
                 #Deletion of the file if it exists (would be empty in that case)
@@ -283,7 +306,7 @@ function exportSong {
                 $global:NBWarnings +=1
                 $global:FullMessage += "H: Fallback to .egg"
 
-                #Refresh messages
+                #Refresh Content displayed in the shell
                 GetProgression
                 Write-Host $global:Content
 
@@ -296,7 +319,8 @@ function exportSong {
 
 
 
-#Even I barely undertand how I got it working
+#Create a string that can fill the whole shell's window with the status of the script execution
+#Those informations are written to host without clearing the terminal to avoid flashing (though it's not donne in the function because of the spinner)
 function GetProgression {
 
     #Width of the Shell Window (in characters)
@@ -466,6 +490,7 @@ function Report {
     Write-Host ""
     Write-Host "Script log available here : $BSLog" -ForegroundColor Blue
     Write-Host ""
+    Write-Host ""
 
     #Create the log
     $global:FullMessage += "`n`nNumber of Warnings : $global:NBWarnings`n`nNumber of Errors : $global:NBErrors`n"
@@ -487,7 +512,7 @@ $global:NBWarnings = 0
 $global:Content = ""
 
 #FFmpeg log file path
-Set-Location $BSPath[0]
+Set-Location $DestPath
 $pwd = pwd
 $ErrorLog = $pwd.Path+"\ffmpeg_error.log"
 
