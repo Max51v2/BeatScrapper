@@ -1,15 +1,15 @@
 #Author : Maxime VALLET
-#Version : 6.4
+#Version : 6.5
 
 ########################################################################## Variables ##########################################################################
 
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @()
+$BSPath = @("C:\Users\Maxime\Downloads\BSSongs")
 
 #Folder path where the songs will be stored
-$DestPath = ""
+$DestPath = "C:\Users\Maxime\Downloads\test"
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -40,15 +40,341 @@ $SWCodec = "libx264"
 
 
 
-Clear-Host
+
+
+######################### Functions #########################
+function doSongExist {
+    param (
+        [string]$DestPath,
+        [string]$SongName
+    )
+    
+    #Check if the song already exists (no matter the format)
+    $SongExist = "false"
+    $SongDestNameTest = "none"
+    #List every songs in the destination folder and check if the name is identical to the song we're exporting
+    Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
+        #Fetching the song's name in the dest folder
+        $SongNameTest = $_ -replace '\.[^.]+$'
+
+        #If the name of the current music is the same than the one we are exporting
+        if ($SongNameTest -eq $SongName){
+            $SongExist = "true"
+            $SongDestNameTest = $_
+        }
+    }
+
+    $SongExistObj = [PSCustomObject]@{
+        SongExist = $SongExist
+        SongDestNameTest = $SongDestNameTest
+    }
+
+    return $SongExistObj
+}
+
+
+function exportSong {
+    param (
+        [string]$SongFileName,
+        [string]$SongFileExtension,
+        [string]$SongName,
+        [string]$LevelPath,
+        [string]$DestPath,
+        [string]$c,
+        [string]$MusicNumber,
+        [string]$Format,
+        [string]$CoverPath,
+        [string]$AMD,
+        [string]$Preset,
+        [string]$SongExist
+    )
+    
+    #Progression
+    $global:Progression = $c/$MusicNumber
+
+    #Dest music name + format
+    $SongDestName = "$SongName.$Format"
+
+    #Source music name + format
+    $SourceSongName = "$SongFileName.$SongFileExtension"
+
+    #Full path of the song
+    $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
+
+    #Full path of where the song will be copied
+    $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
+
+    #Check if the song already exists (no matter the format)
+    $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
+    $SongExist = $SongExistObj.SongExist
+    $SongDestNameTest = $SongExistObj.SongDestNameTest
+
+    #EGG export
+    if($Format -ieq "egg"){
+        #If the music already exist, we skip it
+        if ($SongExist -eq "true"){
+            $global:FullMessage += "H: $c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
+
+            #Refresh messages
+            DisplayProgression
+
+            return
+        }
+
+        #Check if the song exists in the map folder
+        if (-not (Test-Path $SongPath)) {
+            $global:FullMessage += "W: No music at this path : $SongPath"
+            $global:NBWarnings +=1
+            $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
+
+            #Refresh messages
+            DisplayProgression
+
+            return
+        }
+
+        $global:FullMessage += "H: $c/$MusicNumber - Exporting : $SongDestName"
+
+        #Refresh messages
+        DisplayProgression
+        
+        #Copy the song
+        Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+    }
+    #Video export
+    else {
+        #If the cover doesn't exist
+        if(-not (Test-Path $CoverPath)){
+            $global:FullMessage += "W: No cover for $SongName"
+            $global:NBWarnings +=1
+            $global:FullMessage += "H: Fallback to .egg"
+
+            #Refresh messages
+            DisplayProgression
+
+            #Relaunching the function with the EGG format
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
+
+            return
+        }
+        #If the cover exist
+        else {
+            #FFmpeg command
+            if( -not ($AMD -eq $null)){
+                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+            }
+            elseif($Preset -eq "true"){
+                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+            }
+            else {
+                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
+            }
+
+            #Check if the song exists in the map folder
+            if (-not (Test-Path $SongPath)) {
+                $global:FullMessage += "W: No music at this path : $SongPath"
+                $global:NBWarnings +=1
+                $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
+
+                #Refresh messages
+                DisplayProgression
+
+                return
+            }
+
+            #If the music already exist, we skip it
+            if ($SongExist -eq "true"){
+                $global:FullMessage += "H: $c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
+
+                #Refresh messages
+                DisplayProgression
+
+                return
+            }
+
+            $global:FullMessage += "H: $c/$MusicNumber - Exporting : $SongDestName"
+
+            #Refresh messages    
+            DisplayProgression
+
+            #Block try-catch to catch FFmepg errors
+            try {
+                #Command to export the song
+                Invoke-Expression $FFmpegCommand
+
+                #If the execution of the commande resulted in an error, we show it to the user
+                if ($LASTEXITCODE -ne 0) {
+                    $global:FullMessage += "W: Couldn't export music because of an FFmpeg Error : $LASTEXITCODE"
+                    $global:NBWarnings +=1
+                }
+            } 
+            catch {
+                #Deletion of the file if it exists (would be empty in that case)
+                if(Test-Path $SongDestPath){
+                    Remove-Item -LiteralPath $SongDestPath
+                }
+
+                $global:FullMessage += "W: Couldn't create $SongDestName : $_"
+                $global:NBWarnings +=1
+                $global:FullMessage += "H: Fallback to .egg"
+
+                #Refresh messages
+                DisplayProgression
+
+                #Relaunching the function with the EGG format
+                exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
+            }
+        }
+    }
+}
 
 
 
-#Var init : they are global because it'll be modified in a function while being accessed in another
-$global:FullMessage = @()
-$global:NBErrors = 0
-$global:NBWarnings = 0
-$global:Content = ""
+#Even I barely undertand how I got it working
+function DisplayProgression {
+
+    #Width of the Shell Window (in characters)
+    $CLIWidth = $Host.UI.RawUI.WindowSize.Width - 1
+    #Height of the Shell Window (in characters) minus the progression bar because we don't print messages in those lines
+    $CLIHeight = $Host.UI.RawUI.WindowSize.Height - 3
+
+    #Calculating message offset if there is more messages than we can display (display from bottom)
+    if($FullMessage.Length -ge $CLIHeight){
+        $Offset = $FullMessage.Length - $CLIHeight
+
+        #Offset can't be negative (if window is too narrow)
+        if($Offset -lt 0){
+            $Offset = 0
+        }
+    }
+    else {
+        $Offset = 0
+    }
+
+    #For every line we can display in the Shell's Window
+    $Line = 0
+    $LinesToAdd = 2
+    $global:Content = ""
+    while ($Line -lt $CLIHeight) {
+        #If there is more lines available than there is to display
+        if($CLIHeight -gt $FullMessage.Length){
+            #Fill with blank until there is 
+            while(($CLIHeight - $FullMessage.Length) -gt 0){
+                $LinesToAdd += 1
+
+                $CLIHeight -= 1
+            }
+        }
+
+        #Adds a Newline
+        if($Line -ge 1){
+            $global:Content += "`n"
+        }
+
+        #Folder we're currently exporting from
+        if($Line -eq 2){
+            $global:Content += "Exporting from folder : $global:FolderName"
+        }
+        #Diplay message from $FullMessage : No offset (codec info etc)
+        elseif ($Line -lt 2) {
+            #Importance of the message and message itself
+            $MessageType = $global:FullMessage[$Line].Substring(0, 1)
+            $Message = $global:FullMessage[$Line].Substring(2)
+
+            #Adding the message and it's type to the content that'll be displayed
+            if($MessageType -eq "H"){
+                $global:Content += "$Message"
+            }
+            elseif ($MessageType -eq "W") {
+                $global:Content += "WARNING : $Message"
+            }
+                elseif ($MessageType -eq "E") {
+                $global:Content += "ERROR : $Message"
+            }
+        }
+        #Diplay message from $FullMessage : offset
+        else {
+            #Importance of the message and message itself
+            $MessageType = $global:FullMessage[$Line + $Offset].Substring(0, 1)
+            $Message = $global:FullMessage[$Line + $Offset].Substring(2)
+
+            #Adding the message and it's type to the content that'll be displayed
+            if($MessageType -eq "H"){
+                $global:Content += "$Message"
+            }
+            elseif ($MessageType -eq "W") {
+                $global:Content += "WARNING : $Message"
+            }
+            elseif ($MessageType -eq "E") {
+                $global:Content += "ERROR : $Message"
+            }
+        }
+
+        $Line += 1
+    }
+
+
+    #Number of # characters used to fil the bar
+    $FillNumber = [math]::Round($global:Progression * ($CLIWidth-7))
+
+    #Progression percentage
+    $Percentage = [math]::Round($global:Progression * 100)
+
+    #Filling the extra lines before the progression bar
+    while($LinesToAdd -gt 0){
+        $global:Content += "`n"
+
+        $LinesToAdd -= 1
+    }
+    
+    #Filling the bar
+    $BarWidth = 0
+    $BarContent = ""
+    While($BarWidth -le $CLIWidth){
+        
+        if($BarWidth -eq 0){
+            $BarContent += "["
+        }
+        #No arrow head if ■ is next to the ] at the end
+        elseif ($BarWidth -eq ($CLIWidth - 7)) {
+            #If the percentage filled is smaller than where the export is
+            if($BarWidth -le $FillNumber){
+                $BarContent += "■"
+            }
+            #If the percentage filled is bigger than where the export is
+            else{
+                $BarContent += " "
+            }
+        }
+        #Arrow head as long as there is at least 1 empty character between the progression and the ] at the end
+        elseif ($BarWidth -lt ($CLIWidth - 6)) {
+            #If the percentage filled is smaller than where the export is
+            if($BarWidth -le $FillNumber){
+                $BarContent += "■"
+            }
+            #Adding the arrow head the charcter following the one positionned at the exact exporting percentage
+            elseif ($BarWidth -eq ($FillNumber+1)) {
+                $BarContent += "►"
+            }
+            #If the percentage filled is bigger than where the export is
+            else{
+                $BarContent += " "
+            }
+        }
+        #If the bar is filled, we add the closing bracket and the percentage
+        elseif($BarWidth -eq ($CLIWidth - 4)){
+            $BarContent += "] $Percentage%"
+        }
+
+        $BarWidth += 1
+    }
+
+    $global:Content += "$BarContent"
+
+    #Print the entirety of the window
+
+    Write-Host $global:Content
+}
 
 
 #Function that gives the status of the script execution
@@ -71,6 +397,20 @@ function Report {
     Write-Host ($Errors -join "`n") -ForegroundColor Red
     Write-Host ""
 }
+#############################################################
+
+
+
+
+Clear-Host
+
+
+
+#Var init : they are global because it'll be modified in a function while being accessed in another
+$global:FullMessage = @()
+$global:NBErrors = 0
+$global:NBWarnings = 0
+$global:Content = ""
 
 
 #Check if the map and destination path were completed (empty by default)
@@ -296,342 +636,3 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
 
 #End Report
 Report
-
-
-
-
-
-
-######################### Functions #########################
-function doSongExist {
-    param (
-        [string]$DestPath,
-        [string]$SongName
-    )
-    
-    #Check if the song already exists (no matter the format)
-    $SongExist = "false"
-    $SongDestNameTest = "none"
-    #List every songs in the destination folder and check if the name is identical to the song we're exporting
-    Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
-        #Fetching the song's name in the dest folder
-        $SongNameTest = $_ -replace '\.[^.]+$'
-
-        #If the name of the current music is the same than the one we are exporting
-        if ($SongNameTest -eq $SongName){
-            $SongExist = "true"
-            $SongDestNameTest = $_
-        }
-    }
-
-    $SongExistObj = [PSCustomObject]@{
-        SongExist = $SongExist
-        SongDestNameTest = $SongDestNameTest
-    }
-
-    return $SongExistObj
-}
-
-
-
-function exportSong {
-    param (
-        [string]$SongFileName,
-        [string]$SongFileExtension,
-        [string]$SongName,
-        [string]$LevelPath,
-        [string]$DestPath,
-        [string]$c,
-        [string]$MusicNumber,
-        [string]$Format,
-        [string]$CoverPath,
-        [string]$AMD,
-        [string]$Preset,
-        [string]$SongExist
-    )
-    
-    #Progression
-    $global:Progression = $c/$MusicNumber
-
-    #Dest music name + format
-    $SongDestName = "$SongName.$Format"
-
-    #Source music name + format
-    $SourceSongName = "$SongFileName.$SongFileExtension"
-
-    #Full path of the song
-    $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
-
-    #Full path of where the song will be copied
-    $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
-
-    #Check if the song already exists (no matter the format)
-    $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
-    $SongExist = $SongExistObj.SongExist
-    $SongDestNameTest = $SongExistObj.SongDestNameTest
-
-    #EGG export
-    if($Format -ieq "egg"){
-        #If the music already exist, we skip it
-        if ($SongExist -eq "true"){
-            $global:FullMessage += "H: $c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
-
-            #Refresh messages
-            DisplayProgression
-
-            return
-        }
-
-        #Check if the song exists in the map folder
-        if (-not (Test-Path $SongPath)) {
-            $global:FullMessage += "W: No music at this path : $SongPath"
-            $global:NBWarnings +=1
-            $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
-
-            #Refresh messages
-            DisplayProgression
-
-            return
-        }
-
-        $global:FullMessage += "H: $c/$MusicNumber - Exporting : $SongDestName"
-
-        #Refresh messages
-        DisplayProgression
-        
-        #Copy the song
-        Copy-Item -Path $SongPath -Destination $SongDestPath -Force
-    }
-    #Video export
-    else {
-        #If the cover doesn't exist
-        if(-not (Test-Path $CoverPath)){
-            $global:FullMessage += "W: No cover for $SongName"
-            $global:NBWarnings +=1
-            $global:FullMessage += "H: Fallback to .egg"
-
-            #Refresh messages
-            DisplayProgression
-
-            #Relaunching the function with the EGG format
-            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
-
-            return
-        }
-        #If the cover exist
-        else {
-            #FFmpeg command
-            if( -not ($AMD -eq $null)){
-                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
-            }
-            elseif($Preset -eq "true"){
-                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
-            }
-            else {
-                $FFmpegCommand = ".\ffmpeg -loglevel quiet -xerror -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`""
-            }
-
-            #Check if the song exists in the map folder
-            if (-not (Test-Path $SongPath)) {
-                $global:FullMessage += "W: No music at this path : $SongPath"
-                $global:NBWarnings +=1
-                $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
-
-                #Refresh messages
-                DisplayProgression
-
-                return
-            }
-
-            #If the music already exist, we skip it
-            if ($SongExist -eq "true"){
-                $global:FullMessage += "H: $c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
-
-                #Refresh messages
-                DisplayProgression
-
-                return
-            }
-
-            $global:FullMessage += "H: $c/$MusicNumber - Exporting : $SongDestName"
-
-            #Refresh messages    
-            DisplayProgression
-
-            #Block try-catch to catch FFmepg errors
-            try {
-                #Command to export the song
-                Invoke-Expression $FFmpegCommand
-
-                #If the execution of the commande resulted in an error, we show it to the user
-                if ($LASTEXITCODE -ne 0) {
-                    $global:FullMessage += "W: Couldn't export music because of an FFmpeg Error : $LASTEXITCODE"
-                    $global:NBWarnings +=1
-                }
-            } 
-            catch {
-                #Deletion of the file if it exists (would be empty in that case)
-                if(Test-Path $SongDestPath){
-                    Remove-Item -LiteralPath $SongDestPath
-                }
-
-                $global:FullMessage += "W: Couldn't create $SongDestName : $_"
-                $global:NBWarnings +=1
-                $global:FullMessage += "H: Fallback to .egg"
-
-                #Refresh messages
-                DisplayProgression
-
-                #Relaunching the function with the EGG format
-                exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
-            }
-        }
-    }
-}
-
-
-
-#Even I barely undertand how I got it working
-function DisplayProgression {
-    #Width of the Shell Window (in characters)
-    $CLIWidth = $Host.UI.RawUI.WindowSize.Width - 1
-    #Height of the Shell Window (in characters) minus the progression bar because we don't print messages in those lines
-    $CLIHeight = $Host.UI.RawUI.WindowSize.Height - 3
-
-    #Calculating message offset if there is more messages than we can display (display from bottom)
-    if($FullMessage.Length -ge $CLIHeight){
-        $Offset = $FullMessage.Length - $CLIHeight
-
-        #Offset can't be negative (if window is too narrow)
-        if($Offset -lt 0){
-            $Offset = 0
-        }
-    }
-    else {
-        $Offset = 0
-    }
-
-    #For every line we can display in the Shell's Window
-    $Line = 0
-    $LinesToAdd = 2
-    $global:Content = ""
-    while ($Line -lt $CLIHeight) {
-        #If there is more lines available than there is to display
-        if($CLIHeight -gt $FullMessage.Length){
-            #Fill with blank until there is 
-            while(($CLIHeight - $FullMessage.Length) -gt 0){
-                $LinesToAdd += 1
-
-                $CLIHeight -= 1
-            }
-        }
-
-        #Adds a Newline
-        if($Line -ge 1){
-            $global:Content += "`n"
-        }
-
-        #Folder we're currently exporting from
-        if($Line -eq 2){
-            $global:Content += "Exporting from folder : $global:FolderName"
-        }
-        #Diplay message from $FullMessage : No offset (codec info etc)
-        elseif ($Line -lt 2) {
-            #Importance of the message and message itself
-            $MessageType = $global:FullMessage[$Line].Substring(0, 1)
-            $Message = $global:FullMessage[$Line].Substring(2)
-
-            #Adding the message and it's type to the content that'll be displayed
-            if($MessageType -eq "H"){
-                $global:Content += "$Message"
-            }
-            elseif ($MessageType -eq "W") {
-                $global:Content += "WARNING : $Message"
-            }
-                elseif ($MessageType -eq "E") {
-                $global:Content += "ERROR : $Message"
-            }
-        }
-        #Diplay message from $FullMessage : offset
-        else {
-            #Importance of the message and message itself
-            $MessageType = $global:FullMessage[$Line + $Offset].Substring(0, 1)
-            $Message = $global:FullMessage[$Line + $Offset].Substring(2)
-
-            #Adding the message and it's type to the content that'll be displayed
-            if($MessageType -eq "H"){
-                $global:Content += "$Message"
-            }
-            elseif ($MessageType -eq "W") {
-                $global:Content += "WARNING : $Message"
-            }
-            elseif ($MessageType -eq "E") {
-                $global:Content += "ERROR : $Message"
-            }
-        }
-
-        $Line += 1
-    }
-
-
-    #Number of # characters used to fil the bar
-    $FillNumber = [math]::Round($global:Progression * ($CLIWidth-7))
-
-    #Progression percentage
-    $Percentage = [math]::Round($global:Progression * 100)
-
-    #Filling the extra lines before the progression bar
-    while($LinesToAdd -gt 0){
-        $global:Content += "`n"
-
-        $LinesToAdd -= 1
-    }
-    
-    #Filling the bar
-    $BarWidth = 0
-    $BarContent = ""
-    While($BarWidth -le $CLIWidth){
-        
-        if($BarWidth -eq 0){
-            $BarContent += "["
-        }
-        #No arrow head if ■ is next to the ] at the end
-        elseif ($BarWidth -eq ($CLIWidth - 7)) {
-            #If the percentage filled is smaller than where the export is
-            if($BarWidth -le $FillNumber){
-                $BarContent += "■"
-            }
-            #If the percentage filled is bigger than where the export is
-            else{
-                $BarContent += " "
-            }
-        }
-        #Arrow head as long as there is at least 1 empty character between the progression and the ] at the end
-        elseif ($BarWidth -lt ($CLIWidth - 6)) {
-            #If the percentage filled is smaller than where the export is
-            if($BarWidth -le $FillNumber){
-                $BarContent += "■"
-            }
-            #Adding the arrow head the charcter following the one positionned at the exact exporting percentage
-            elseif ($BarWidth -eq ($FillNumber+1)) {
-                $BarContent += "►"
-            }
-            #If the percentage filled is bigger than where the export is
-            else{
-                $BarContent += " "
-            }
-        }
-        #If the bar is filled, we add the closing bracket and the percentage
-        elseif($BarWidth -eq ($CLIWidth - 4)){
-            $BarContent += "] $Percentage%"
-        }
-
-        $BarWidth += 1
-    }
-
-    $global:Content += "$BarContent"
-
-    #Print the entirety of the window
-    Write-Host $global:Content
-}
-#############################################################
