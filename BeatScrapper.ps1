@@ -1,5 +1,5 @@
 #Author : Maxime VALLET
-#Version : 6.3
+#Version : 6.4
 
 ########################################################################## Variables ##########################################################################
 
@@ -40,9 +40,8 @@ $SWCodec = "libx264"
 
 
 
-
-
 Clear-Host
+
 
 
 #Var init : they are global because it'll be modified in a function while being accessed in another
@@ -52,19 +51,42 @@ $global:NBWarnings = 0
 $global:Content = ""
 
 
+#Function that gives the status of the script execution
+function Report {
+    Clear-Host
+    Write-Host ""
+    if($global:NBErrors -gt 0){
+        Write-Host "The script couldn't export Beat Saber songs because of some errors ^~^" -ForegroundColor Red
+    }
+    else {
+        Write-Host "The script is done exporting Beat Saber songs ^_^" -ForegroundColor Green
+    }
+    Write-Host ""
+    Write-Host "Number of Warnings : $global:NBWarnings" -ForegroundColor Yellow
+    $Warnings = (Write-Output $global:FullMessage | Select-String -Pattern "W:").Line
+    Write-Host ($Warnings -join "`n") -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Number of Errors : $global:NBErrors" -ForegroundColor Red
+    $Errors = (Write-Output $global:FullMessage | Select-String -Pattern "E:").Line
+    Write-Host ($Errors -join "`n") -ForegroundColor Red
+    Write-Host ""
+}
+
+
 #Check if the map and destination path were completed (empty by default)
 if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
     #Ask the user to fill them
     if (($DestPath -eq $null) -or ($DestPath -eq "")){
-        Write-Error "Please define the following path in th script : DestPath"
+        $global:FullMessage += "E: Please define the following path in th script : DestPath"
+        $global:NBErrors +=1
     }
     if ($BSPath.Length -eq 0) {
-        Write-Error "Please define the following path(s) in th script : BSPath"
+        $global:FullMessage += "E: Please define the following path(s) in th script : BSPath"
+        $global:NBErrors +=1
     }
     
-    Write-Host ""
-    Write-Host "Done"
-    Write-Host ""
+    #End Report
+    Report
 
     #Stops the script
     Break
@@ -74,11 +96,11 @@ if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
 #Check if the format is correct
 $checkFormat = ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern "  $Format  "
 if($checkFormat -eq $null){
-    Write-Error "The format isn't supported by FFmpeg : $Format"
+    $global:FullMessage += "E: The format isn't supported by FFmpeg : $Format"
+    $global:NBErrors +=1
 
-    Write-Host ""
-    Write-Host "Done"
-    Write-Host ""
+    #End Report
+    Report
 
     #Stops the script
     Break
@@ -94,12 +116,11 @@ $BSPathIndex=0
 while ($BSPathIndex -le ($BSPath.Length-1)){
     if (-not (Test-Path $BSPath[$BSPathIndex])) {
         $WrongPath = $BSPath[$BSPathIndex]
-        Write-Error "Path doesn't exist : $WrongPath"
-        Write-Host "Please check your inputs in the BSPath variable"
-        Write-Host ""
+        $global:FullMessage += "E: Path doesn't exist : $WrongPath" 
+        $global:NBErrors +=1
 
-        Write-Host "Done"
-        Write-Host ""
+        #End Report
+        Report
 
         #Stops the script
         Break
@@ -135,11 +156,11 @@ if ($targetPath) {
         Clear-Host
     }
     else {
-        Write-Error "There was a problem with the ffmpeg installation"
+        $global:FullMessage += "E: There was a problem with the ffmpeg installation"
+        $global:NBErrors +=1
 
-        Write-Host ""
-        Write-Host "Done"
-        Write-Host ""
+        #End Report
+        Report
 
         #Stops the script
         Break
@@ -177,7 +198,7 @@ else{
 
 #Codec info
 if($Codec -eq "libx264"){
-    $global:FullMessage += "W: Using Software codec : $Codec (please report to @Max51v2 if unintentional)"
+    $global:FullMessage += "W: Using Software codec : $Codec (please Report to @Max51v2 if unintentional)"
     $global:NBWarnings +=1
 }
 else {
@@ -273,20 +294,8 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
     $BSPathIndex = $BSPathIndex+1
 }
 
-
-#End report
-Clear-Host
-Write-Host ""
-Write-Host "Script is done exporting Beat Saber songs ^_^" -ForegroundColor Green
-Write-Host ""
-Write-Host "Number of Warnings : $global:NBWarnings" -ForegroundColor Yellow
-$Warnings = (Write-Output $global:FullMessage | Select-String -Pattern "W:").Line
-Write-Host ($Warnings -join "`n") -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Number of Errors : $global:NBErrors" -ForegroundColor Red
-$Errors = (Write-Output $global:FullMessage | Select-String -Pattern "E:").Line
-Write-Host ($Errors -join "`n") -ForegroundColor Red
-Write-Host ""
+#End Report
+Report
 
 
 
@@ -322,6 +331,7 @@ function doSongExist {
 
     return $SongExistObj
 }
+
 
 
 function exportSong {
@@ -455,8 +465,8 @@ function exportSong {
 
                 #If the execution of the commande resulted in an error, we show it to the user
                 if ($LASTEXITCODE -ne 0) {
-                    $global:FullMessage += "E: FFmpeg Error : $LASTEXITCODE"
-                    $global:NBErrors +=1
+                    $global:FullMessage += "W: Couldn't export music because of an FFmpeg Error : $LASTEXITCODE"
+                    $global:NBWarnings +=1
                 }
             } 
             catch {
@@ -478,6 +488,7 @@ function exportSong {
         }
     }
 }
+
 
 
 #Even I barely undertand how I got it working
@@ -586,7 +597,7 @@ function DisplayProgression {
         }
         #No arrow head if ■ is next to the ] at the end
         elseif ($BarWidth -eq ($CLIWidth - 7)) {
-            #If the percentage filled is bigger than where the export is
+            #If the percentage filled is smaller than where the export is
             if($BarWidth -le $FillNumber){
                 $BarContent += "■"
             }
@@ -597,10 +608,11 @@ function DisplayProgression {
         }
         #Arrow head as long as there is at least 1 empty character between the progression and the ] at the end
         elseif ($BarWidth -lt ($CLIWidth - 6)) {
-            #If the percentage filled is lower than where the export is
+            #If the percentage filled is smaller than where the export is
             if($BarWidth -le $FillNumber){
                 $BarContent += "■"
             }
+            #Adding the arrow head the charcter following the one positionned at the exact exporting percentage
             elseif ($BarWidth -eq ($FillNumber+1)) {
                 $BarContent += "►"
             }
