@@ -228,7 +228,7 @@ function exportSong {
                 #job state
                 $jobstat = Get-Job -Name "$c" | Select-Object State
 
-                #Contains the spinner's pattern (can be changed without other modifications (first is "|"" though => Look for line 377 to change it))
+                #Contains the spinner's pattern (can be changed without other modifications (first is "|"" though => Look for this line '$global:Content += "|$Message |"' to change it))
                 $CharList = @("/", "-", "\", "|", "/", "-", "\", "|")
                 $CharIndex = 0
 
@@ -729,15 +729,8 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
         #Cover path
         $CoverPath = Join-Path -Path $LevelPath -ChildPath "$ImageName.$ImageExtension"
 
-        #If the user chooses to include the cover
-        if ($IncludeCover -eq "true") {
-            #Export with cover
-            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
-        }
-        else{
-            #Export without cover
-            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
-        }
+        #Export
+        exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist    
     }
 
     $BSPathIndex = $BSPathIndex+1
