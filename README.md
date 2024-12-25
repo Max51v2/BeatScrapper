@@ -24,9 +24,7 @@ II) How to execute the project ?
   a) Clone the repository or download it (releases tab)
   b) Change the script options (at the begining of the script) available here "[project path]\BeatScrapper.ps1"
   c) Launch the script
-   set-executionpolicy unrestricted
-   [project path]\BeatScrapper.ps1
-   Set-executionpolicy Allsigned
+   powershell.exe -ExecutionPolicy Bypass -File "[Download path]\BeatScrapper\BeatScrapper.ps1"
 
 III) Who should you contact if you have a question or an issue ?
  - Maxime VALLET
@@ -59,9 +57,7 @@ II) Comment exécuter le projet ?
   a) Clonez le répertoire ou téléchargez-le (onglet releases)
   b) Changez les options du script (au début du script) disponible ici "[chemin du project]\BeatScrapper.ps1"
   c) Lancez le script
-   set-executionpolicy unrestricted
-   [chemin du project]\BeatScrapper.ps1
-   Set-executionpolicy Allsigned
+   powershell.exe -ExecutionPolicy Bypass -File "[Chemin Téléchargement]\BeatScrapper\BeatScrapper.ps1"
 
 III) Qui contacter en cas de question ?
  - Maxime VALLET
