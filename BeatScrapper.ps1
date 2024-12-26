@@ -1,5 +1,5 @@
 #Author : Maxime VALLET
-#Version : 7.4
+#Version : 7.6
 
 ########################################################################## Variables ##########################################################################
 
@@ -119,7 +119,8 @@ function exportSong {
 
             #Refresh Content displayed in the shell
             GetProgression
-            Write-Host $global:Content
+            Write-Host $global:Content -NoNewline
+            Out-Default
 
             return
         }
@@ -132,7 +133,8 @@ function exportSong {
 
             #Refresh Content displayed in the shell
             GetProgression
-            Write-Host $global:Content
+            Write-Host $global:Content -NoNewline
+            Out-Default
 
             return
         }
@@ -141,7 +143,8 @@ function exportSong {
 
         #Refresh Content displayed in the shell
         GetProgression
-        Write-Host $global:Content
+        Write-Host $global:Content -NoNewline
+        Out-Default
         
         #Copy the song
         Copy-Item -Path $SongPath -Destination $SongDestPath -Force
@@ -156,7 +159,8 @@ function exportSong {
 
             #Refresh Content displayed in the shell
             GetProgression
-            Write-Host $global:Content
+            Write-Host $global:Content -NoNewline
+            Out-Default
 
             #Relaunching the function with the EGG format
             exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
@@ -167,13 +171,13 @@ function exportSong {
         else {
             #FFmpeg command
             if( -not ($AMD -eq $null)){
-                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
+                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a copy -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
             }
             elseif($Preset -eq "true"){
-                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
+                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a copy -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
             }
             else {
-                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a aac -b:a 320k -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
+                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a copy -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
             }
 
             #Check if the song exists in the map folder
@@ -184,7 +188,8 @@ function exportSong {
 
                 #Refresh Content displayed in the shell
                 GetProgression
-                Write-Host $global:Content
+                Write-Host $global:Content -NoNewline
+                Out-Default
 
                 return
             }
@@ -195,7 +200,8 @@ function exportSong {
 
                 #Refresh Content displayed in the shell
                 GetProgression
-                Write-Host $global:Content
+                Write-Host $global:Content -NoNewline
+                Out-Default
 
                 return
             }
@@ -204,12 +210,12 @@ function exportSong {
 
             #Refresh Content displayed in the shell
             GetProgression
+            Clear-Host
+            Write-Host $global:Content -NoNewline
+            Out-Default
 
             #Block try-catch to catch FFmepg errors
             try {
-                #Remove all jobs that exist
-                Remove-Job -Name "*"
-
                 #Job that launches the FFmpeg command in the background
                 $job = Start-Job -Name "$c" -ScriptBlock {
                     #Parameters used by the command + path of FFmpeg executable
@@ -232,12 +238,15 @@ function exportSong {
                 $CharList = @("/", "-", "\", "|", "/", "-", "\", "|")
                 $CharIndex = 0
 
-                Clear-Host
+                #Generate new content with spinner's first char on last line
+                $AddSpinner = "true"
+                GetProgression
 
                 #While the job is runnin, remplace le pipe placed by DiplayProgression in the last message (repeat with next chars)
                 while ($jobstat.State -ne "Completed") {
                     #Refresh Content displayed in the shell
-                    Write-Host $global:Content
+                    Write-Host $global:Content -NoNewline
+                    Out-Default
 
                     #job state
                     $jobstat = Get-Job -Name "$c" | Select-Object State
@@ -265,8 +274,13 @@ function exportSong {
                     }
 
                     #Refreshing time
-                    Start-Sleep -Seconds 0.1
+                    Start-Sleep -Milliseconds 200
                 }
+
+                $AddSpinner = "false"
+
+                #Remove the job
+                Remove-Job -Name "$c" -Force
 
                 #if there is a log file (imply that there is an error)
                 if (Test-Path $ErrorLog) {
@@ -308,7 +322,8 @@ function exportSong {
 
                 #Refresh Content displayed in the shell
                 GetProgression
-                Write-Host $global:Content
+                Write-Host $global:Content -NoNewline
+                Out-Default
 
                 #Relaunching the function with the EGG format
                 exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
@@ -324,7 +339,7 @@ function exportSong {
 function GetProgression {
 
     #Width of the Shell Window (in characters)
-    $CLIWidth = $Host.UI.RawUI.WindowSize.Width - 1
+    $CLIWidth = $Host.UI.RawUI.WindowSize.Width - 2
     #Height of the Shell Window (in characters) minus the progression bar because we don't print messages in those lines
     $CLIHeight = $Host.UI.RawUI.WindowSize.Height - 3
 
@@ -341,10 +356,13 @@ function GetProgression {
         $Offset = 0
     }
 
+    #Reseting content to display
+    #Start with return carriage because the first line the to be the last displayed making it flash (it doesn't matter because it goes out of the shell window because the message takes the windows)
+    $global:Content = "`n"
+    
     #For every line we can display in the Shell's Window
     $Line = 0
     $LinesToAdd = 2
-    $global:Content = ""
     while ($Line -lt $CLIHeight) {
         #If there is more lines available than there is to display
         if($CLIHeight -gt $FullMessage.Length){
@@ -391,7 +409,7 @@ function GetProgression {
             #Adding the message and it's type to the content that'll be displayed
             if($MessageType -eq "H"){
                 #If it's the last line, we add the | (for the animation)
-                if($Line -eq ($CLIHeight - 1)){
+                if(($Line -eq ($CLIHeight - 1)) -and ($AddSpinner -eq "true")){
                     $global:Content += "|$Message |"
                 }
                 else {
@@ -465,7 +483,7 @@ function GetProgression {
         $BarWidth += 1
     }
 
-    $global:Content += "$BarContent"
+    $global:Content += "$BarContent`n"
 }
 
 
@@ -511,6 +529,9 @@ $global:NBErrors = 0
 $global:NBWarnings = 0
 $global:Content = ""
 
+#Remove all jobs that exist
+Remove-Job -Name "*" -Force
+
 #FFmpeg log file path
 Set-Location $DestPath
 $pwd = pwd
@@ -526,11 +547,11 @@ $BSLog = $pwd.Path+"\BeatScrapper_trace.log"
 if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
     #Ask the user to fill them
     if (($DestPath -eq $null) -or ($DestPath -eq "")){
-        $global:FullMessage += "E: Please define the following path in th script : DestPath"
+        $global:FullMessage += "E: Please define the following path in the script : DestPath"
         $global:NBErrors +=1
     }
     if ($BSPath.Length -eq 0) {
-        $global:FullMessage += "E: Please define the following path(s) in th script : BSPath"
+        $global:FullMessage += "E: Please define the following path(s) in the script : BSPath"
         $global:NBErrors +=1
     }
     
@@ -730,9 +751,8 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
         $CoverPath = Join-Path -Path $LevelPath -ChildPath "$ImageName.$ImageExtension"
 
         #Export
-        exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist    
+        exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
     }
-
     $BSPathIndex = $BSPathIndex+1
 }
 
