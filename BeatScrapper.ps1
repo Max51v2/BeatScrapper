@@ -142,7 +142,7 @@ function exportSong {
 
         #Check if the song exists in the map folder
         if (-not (Test-Path $SongPath)) {
-            $global:FullMessage += "W: No music at this path : $SongPath"
+            $global:FullMessage += "E: No music at this path : $SongPath"
             $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
             #Refresh Content displayed in the shell
@@ -195,7 +195,7 @@ function exportSong {
 
             #Check if the song exists in the map folder
             if (-not (Test-Path $SongPath)) {
-                $global:FullMessage += "W: No music at this path : $SongPath"
+                $global:FullMessage += "E: No music at this path : $SongPath"
                 $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
                 #Refresh Content displayed in the shell
@@ -304,16 +304,14 @@ function exportSong {
                         #Fill FullMessage with the script error then the FFmpeg error
                         foreach ($line in $errors.Split("`n")) {
                             if($d -eq 0){
-                                $global:FullMessage += "W: Couldn't create $SongDestName"
+                                $global:FullMessage += "E: Couldn't create $SongDestName (Refer to logs for details)"
                             }
                             else {
-                                $global:FullMessage += "=> $line"
+                                $global:FullMessage += "H: => FFmpeg error : $line"
                             }
-                            
 
                             $d += 1
                         }
-                        
                         
                         #Trigger catch clause (=> EGG fallback)
                         throw
@@ -326,7 +324,6 @@ function exportSong {
                     Remove-Item -LiteralPath $SongDestPath
                 }
 
-                $global:FullMessage += "W: Couldn't create $SongDestName (FFmpeg Error) : $errors"
                 $global:FullMessage += "H: Fallback to .egg"
 
                 #Refresh Content displayed in the shell
@@ -532,7 +529,7 @@ function Report {
     Write-Host "Any feedback welcome (new features or bugs) :)`n`n" -ForegroundColor Blue
 
     #Creation of the logs
-    $global:FullMessage += "`n`nNumber of Warnings : $global:NBWarnings`n`nNumber of Errors : $global:NBErrors`n"
+    $global:FullMessage += "`n`nNumber of Warnings : $global:NBWarnings`n`nNumber of Errors : $global:NBErrors`n`nNumber of Severe Errors : $global:NBSevereErrors`n"
     $global:FullMessage | Out-File $BSLog -Force
 }
 
