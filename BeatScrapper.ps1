@@ -1,5 +1,5 @@
 #Author : Maxime VALLET
-#Version : 7.6
+#Version : 7.8
 
 ########################################################################## Variables ##########################################################################
 
@@ -35,6 +35,21 @@ $IntelCodec = "h264_qsv"
 
 #Default SW codec used by FFmpeg if the GPU isn't from the 3 major brands or if $OverrideCoded="true"
 $SWCodec = "libx264"
+
+#Loading pattern displayed when exporting a song 
+#Uncomment the one you want
+#$CharList = @("|", "/", "-", "\", "|", "/", "-", "\")
+$CharList = @("⠇", "⠋", "⠙", "⠸", "⠴", "⠦")
+#$CharList = @("⠇⠀", "⠋⠀", "⠉⠁", "⠈⠃", "⠀⠇", "⠠⠆", "⠤⠄", "⠦⠀")
+#$CharList = @("|   ", ">   ", " >  ", "  > ", "   >", "   |", "   <", "  < "," <  ","<   ")
+
+#Time in ms between every char change (pattern displayed when exporting a song)
+$RefreshPeriod =  200
+
+#Progress bar characters
+$BarFillerChar = "■"
+$BarHeadChar = "►"
+$BarEmptyChar = " "
 
 ################################################################################################################################################################
 
@@ -128,7 +143,6 @@ function exportSong {
         #Check if the song exists in the map folder
         if (-not (Test-Path $SongPath)) {
             $global:FullMessage += "W: No music at this path : $SongPath"
-            $global:NBWarnings +=1
             $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
             #Refresh Content displayed in the shell
@@ -154,7 +168,6 @@ function exportSong {
         #If the cover doesn't exist
         if(-not (Test-Path $CoverPath)){
             $global:FullMessage += "W: No cover for $SongName"
-            $global:NBWarnings +=1
             $global:FullMessage += "H: Fallback to .egg"
 
             #Refresh Content displayed in the shell
@@ -183,7 +196,6 @@ function exportSong {
             #Check if the song exists in the map folder
             if (-not (Test-Path $SongPath)) {
                 $global:FullMessage += "W: No music at this path : $SongPath"
-                $global:NBWarnings +=1
                 $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
                 #Refresh Content displayed in the shell
@@ -234,15 +246,13 @@ function exportSong {
                 #job state
                 $jobstat = Get-Job -Name "$c" | Select-Object State
 
-                #Contains the spinner's pattern (can be changed without other modifications (first is "|"" though => Look for this line '$global:Content += "|$Message |"' to change it))
-                $CharList = @("/", "-", "\", "|", "/", "-", "\", "|")
                 $CharIndex = 0
 
                 #Generate new content with spinner's first char on last line
                 $AddSpinner = "true"
                 GetProgression
 
-                #While the job is runnin, remplace le pipe placed by DiplayProgression in the last message (repeat with next chars)
+                #While the job is running, remplace le pipe placed by DiplayProgression in the last message (repeat with next chars)
                 while ($jobstat.State -ne "Completed") {
                     #Refresh Content displayed in the shell
                     Write-Host $global:Content -NoNewline
@@ -274,7 +284,7 @@ function exportSong {
                     }
 
                     #Refreshing time
-                    Start-Sleep -Milliseconds 200
+                    Start-Sleep -Milliseconds $RefreshPeriod
                 }
 
                 $AddSpinner = "false"
@@ -317,7 +327,6 @@ function exportSong {
                 }
 
                 $global:FullMessage += "W: Couldn't create $SongDestName (FFmpeg Error) : $errors"
-                $global:NBWarnings +=1
                 $global:FullMessage += "H: Fallback to .egg"
 
                 #Refresh Content displayed in the shell
@@ -410,7 +419,7 @@ function GetProgression {
             if($MessageType -eq "H"){
                 #If it's the last line, we add the | (for the animation)
                 if(($Line -eq ($CLIHeight - 1)) -and ($AddSpinner -eq "true")){
-                    $global:Content += "|$Message |"
+                    $global:Content += " "+$CharList[0]+"$Message "+$CharList[0]
                 }
                 else {
                     $global:Content += "$Message"
@@ -453,22 +462,22 @@ function GetProgression {
         elseif ($BarWidth -eq ($CLIWidth - 7)) {
             #If the percentage filled is smaller than where the export is
             if($BarWidth -le $FillNumber){
-                $BarContent += "■"
+                $BarContent += "$BarFillerChar"
             }
             #If the percentage filled is bigger than where the export is
             else{
-                $BarContent += " "
+                $BarContent += "$BarEmptyChar"
             }
         }
         #Arrow head as long as there is at least 1 empty character between the progression and the ] at the end
         elseif ($BarWidth -lt ($CLIWidth - 6)) {
             #If the percentage filled is smaller than where the export is
             if($BarWidth -le $FillNumber){
-                $BarContent += "■"
+                $BarContent += "$BarFillerChar"
             }
             #Adding the arrow head the charcter following the one positionned at the exact exporting percentage
             elseif ($BarWidth -eq ($FillNumber+1)) {
-                $BarContent += "►"
+                $BarContent += "$BarHeadChar"
             }
             #If the percentage filled is bigger than where the export is
             else{
@@ -489,30 +498,111 @@ function GetProgression {
 
 #Function that gives the status of the script execution
 function Report {
+    #Refres the counter for every type of messages
+    GetMessageTypeOccurence -DesiredMessageType "W"
+    GetMessageTypeOccurence -DesiredMessageType "E"
+    GetMessageTypeOccurence -DesiredMessageType "S"
+
     Clear-Host
-    Write-Host ""
-    if($global:NBErrors -gt 0){
-        Write-Host "The script couldn't export Beat Saber songs because of some errors ^~^" -ForegroundColor Red
+
+    #If there is a severe error, the script stopped before exporting any song therefore the message change
+    if($global:NBSevereErrors -gt 0){
+        Write-Host "`nThe script couldn't export Beat Saber songs because of some errors ^~^`n`n" -ForegroundColor Red
     }
     else {
-        Write-Host "The script is done exporting Beat Saber songs ^_^" -ForegroundColor Green
+        Write-Host "`nThe script is done exporting Beat Saber songs ^_^`n`n" -ForegroundColor Green
     }
-    Write-Host ""
+    
+    #Display warings
     Write-Host "Number of Warnings : $global:NBWarnings" -ForegroundColor Yellow
-    $Warnings = (Write-Output $global:FullMessage | Select-String -Pattern "W:").Line
-    Write-Host ($Warnings -join "`n") -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Number of Errors : $global:NBErrors" -ForegroundColor Red
-    $Errors = (Write-Output $global:FullMessage | Select-String -Pattern "E:").Line
-    Write-Host ($Errors -join "`n") -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Script log available here : $BSLog" -ForegroundColor Blue
-    Write-Host ""
-    Write-Host ""
+    PrintMessageType -DesiredMessageType "W"
+ 
+    #Display errors
+    Write-Host "Number of Errors : $global:NBErrors" -ForegroundColor DarkYellow
+    PrintMessageType -DesiredMessageType "E"
 
-    #Create the log
+    #Display severe errors
+    Write-Host "Number of Severe Errors : $global:NBSevereErrors" -ForegroundColor Red
+    PrintMessageType -DesiredMessageType "S"
+
+    #Display log path
+    Write-Host "Logs available here : $BSLog" -ForegroundColor Blue
+
+    #Display feedback message
+    Write-Host "Any feedback welcome (new features or bugs) :)`n`n" -ForegroundColor Blue
+
+    #Creation of the logs
     $global:FullMessage += "`n`nNumber of Warnings : $global:NBWarnings`n`nNumber of Errors : $global:NBErrors`n"
     $global:FullMessage | Out-File $BSLog -Force
+}
+
+
+#Count the number of occurence of a defined message type in FullMessage (H/W/E/...)
+function GetMessageTypeOccurence {
+    param (
+        [String]$DesiredMessageType
+    )
+    
+    $Line=0
+    while($Line -lt $global:FullMessage.Length){
+        #Message type of the current line
+        $MessageType = $global:FullMessage[$Line].Substring(0, 1)
+
+        #If the type of message is the same as desired
+        if($MessageType -eq $DesiredMessageType){
+            #Incrementing the proper variable
+            if($DesiredMessageType -eq "H") {
+                $global:NBHost += 1
+            }
+            if($DesiredMessageType -eq "W"){
+                $global:NBWarnings += 1
+            }
+            elseif($DesiredMessageType -eq "E") {
+                $global:NBErrors += 1
+            }
+            elseif($DesiredMessageType -eq "S") {
+                $global:NBSevereErrors += 1
+            }
+        }
+
+        $Line += 1
+    }
+}
+
+
+#Print all messages of a specified type (H/W/E/...)
+function PrintMessageType {
+    param (
+        [String]$DesiredMessageType
+    )
+    
+    $Line=0
+    while($Line -lt $global:FullMessage.Length){
+        #Message type of the current line
+        $MessageType = $global:FullMessage[$Line].Substring(0, 1)
+        $Message = $global:FullMessage[$Line].Substring(2)
+
+        #If the type of message is the same as desired
+        if($MessageType -eq $DesiredMessageType){
+            #Printing the line accordingly to it's type
+            if($DesiredMessageType -eq "H") {
+                Write-Host "$Message" -ForegroundColor Gray
+            }
+            elseif($DesiredMessageType -eq "W"){
+                Write-Host "WARNING :$Message" -ForegroundColor Yellow
+            }
+            elseif($DesiredMessageType -eq "E") {
+                Write-Host "ERROR :$Message" -ForegroundColor DarkYellow
+            }
+            elseif($DesiredMessageType -eq "S") {
+                Write-Host "SEVERE :$Message" -ForegroundColor Red
+            }
+        }
+
+        $Line += 1
+    }
+
+    Write-Host "`n"
 }
 #############################################################
 
@@ -521,12 +611,12 @@ function Report {
 
 Clear-Host
 
-
-
 #Var init : they are global because it'll be modified in a function while being accessed in another
 $global:FullMessage = @()
+$global:NBSevereErrors = 0
 $global:NBErrors = 0
 $global:NBWarnings = 0
+$global:NBHost = 0
 $global:Content = ""
 
 #Remove all jobs that exist
@@ -547,12 +637,10 @@ $BSLog = $pwd.Path+"\BeatScrapper_trace.log"
 if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
     #Ask the user to fill them
     if (($DestPath -eq $null) -or ($DestPath -eq "")){
-        $global:FullMessage += "E: Please define the following path in the script : DestPath"
-        $global:NBErrors +=1
+        $global:FullMessage += "S: Please define the following path in the script : DestPath"
     }
     if ($BSPath.Length -eq 0) {
-        $global:FullMessage += "E: Please define the following path(s) in the script : BSPath"
-        $global:NBErrors +=1
+        $global:FullMessage += "S: Please define the following path(s) in the script : BSPath"
     }
     
     #End Report
@@ -566,8 +654,7 @@ if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
 #Check if the format is correct
 $checkFormat = ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern "  $Format  "
 if($checkFormat -eq $null){
-    $global:FullMessage += "E: The format isn't supported by FFmpeg : $Format"
-    $global:NBErrors +=1
+    $global:FullMessage += "S: The format isn't supported by FFmpeg : $Format"
 
     #End Report
     Report
@@ -586,8 +673,7 @@ $BSPathIndex=0
 while ($BSPathIndex -le ($BSPath.Length-1)){
     if (-not (Test-Path $BSPath[$BSPathIndex])) {
         $WrongPath = $BSPath[$BSPathIndex]
-        $global:FullMessage += "E: Path doesn't exist : $WrongPath" 
-        $global:NBErrors +=1
+        $global:FullMessage += "S: Path doesn't exist : $WrongPath"
 
         #End Report
         Report
@@ -626,8 +712,7 @@ if ($targetPath) {
         Clear-Host
     }
     else {
-        $global:FullMessage += "E: There was a problem with the ffmpeg installation"
-        $global:NBErrors +=1
+        $global:FullMessage += "S: There was a problem with the ffmpeg installation"
 
         #End Report
         Report
@@ -669,7 +754,6 @@ else{
 #Codec info
 if($Codec -eq "libx264"){
     $global:FullMessage += "W: Using Software codec : $Codec (please Report to @Max51v2 if unintentional)"
-    $global:NBWarnings +=1
 }
 else {
     $global:FullMessage += "H: Using Hardware codec : $Codec"
@@ -717,7 +801,6 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
         if (-not (Test-Path $SongInfoPath)) {
             $global:FolderName = $_.Name
             $global:FullMessage += "W: $c/$MusicNumber - Skipped (No Info.dat) : $global:FolderName"
-            $global:NBWarnings +=1
                 
             return
         }
