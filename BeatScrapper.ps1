@@ -109,8 +109,7 @@ function exportSong {
         [string]$Format,
         [string]$CoverPath,
         [string]$AMD,
-        [string]$Preset,
-        [string]$SongExist
+        [string]$Preset
     )
     
     #Progression
@@ -183,7 +182,7 @@ function exportSong {
             Out-Default
 
             #Relaunching the function with the EGG format
-            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset
 
             return
         }
@@ -339,7 +338,7 @@ function exportSong {
                 Out-Default
 
                 #Relaunching the function with the EGG format
-                exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
+                exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset
             }
         }
     }
@@ -618,6 +617,72 @@ function PowerShellVersionWarning {
     
     break
 }
+
+
+function GetSongInfo {
+    param (
+        [string]$MapFolderName,
+        [string]$CurrentFolder,
+        [string]$BSPathIndex,
+        [string]$MusicNumber,
+        [string]$c
+    )
+
+    $SkipSong = "false"
+
+    #Map path
+    $LevelPath = Join-Path -Path $CurrentFolder -ChildPath $MapFolderName
+    
+    #Path of the info file that contains the cover and song names
+    $SongInfoPath = Join-Path -Path $LevelPath -ChildPath "Info.dat"
+
+    #Check if the Info.dat file exist
+    if (-not (Test-Path $SongInfoPath)) {
+        $global:FullMessage += "E: $c/$MusicNumber - Skipped (No Info.dat) : $global:FolderName"
+            
+        $SkipSong = "true"
+    }
+    else {
+        #Fetching the song's name in the map folder
+        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $Song = $json._songFilename
+        $SongFileName = $Song -replace '\.[^.]+$'
+        $SongFileExtension =  $Song -replace '.*\.'
+
+        #Fetching the song's real name
+        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $Song = $json._songName
+        $SongOriginalName = ($Song -replace '\.[^.]+$','') -replace '[<>:"/\\|?*]', ''
+
+        #Fetching the song's Author name
+        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $Song = $json._songAuthorName
+        $SongAuthorName = $Song -replace '\.[^.]+$'
+
+        #Final song's name
+        $SongName = "$SongAuthorName - $SongOriginalName"
+
+        #Fetching the cover's name
+        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $Image = $json._coverImageFilename
+        $ImageName = $Image -replace '\.[^.]+$'
+        $ImageExtension =  $Image -replace '.*\.'
+
+        #Cover path
+        $CoverPath = Join-Path -Path $LevelPath -ChildPath "$ImageName.$ImageExtension"
+
+        $GetSongInfoObj = [PSCustomObject]@{
+            SongName = $SongName
+            CoverPath = $CoverPath
+            SkipSong = $SkipSong
+            SongFileName = $SongFileName 
+            SongFileExtension = $SongFileExtension
+            LevelPath = $LevelPath
+        }
+    }
+
+    return $GetSongInfoObj
+}
 #############################################################
 
 
@@ -845,8 +910,11 @@ else {
 }
 $global:FullMessage += "H:  "
 
-#FFmpeg Benchmark
 
+#FFmpeg Benchmark
+#$BenchmarkDuration = Measure-Command {
+#    exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
+#}
 
 
 #Fetching how much maps there is so we can display the progression
@@ -883,47 +951,18 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
     Get-ChildItem -LiteralPath $BSPath[$BSPathIndex] -Directory | ForEach-Object{
         $c=$c+1
 
-        #Map path
-        $LevelPath = Join-Path -Path $BSPath[$BSPathIndex] -ChildPath $_.Name
+        #Fetch song's informations from info.dat file located in the map's folder
+        $GetSongInfoObj = GetSongInfo -MapFolderName $_.Name -CurrentFolder $BSPath[$BSPathIndex] -MusicNumber $MusicNumber -c $c
+        $SongName = $GetSongInfoObj.SongName
+        $CoverPath = $GetSongInfoObj.CoverPath
+        $SkipSong = $GetSongInfoObj.SkipSong
+        $SongFileName = $GetSongInfoObj.SongFileName 
+        $SongFileExtension = $GetSongInfoObj.SongFileExtension
+        $LevelPath = $GetSongInfoObj.LevelPath
 
-        #Path of the info file that contains the cover and song names
-        $SongInfoPath = Join-Path -Path $LevelPath -ChildPath "Info.dat"
-
-        #Check if the Info.dat file exist
-        if (-not (Test-Path $SongInfoPath)) {
-            $global:FolderName = $_.Name
-            $global:FullMessage += "W: $c/$MusicNumber - Skipped (No Info.dat) : $global:FolderName"
-                
+        if($SkipSong -eq "true"){
             return
         }
-
-        #Fetching the song's name in the map folder
-        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
-        $Song = $json._songFilename
-        $SongFileName = $Song -replace '\.[^.]+$'
-        $SongFileExtension =  $Song -replace '.*\.'
-
-        #Fetching the song's real name
-        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
-        $Song = $json._songName
-        $SongOriginalName = ($Song -replace '\.[^.]+$','') -replace '[<>:"/\\|?*]', ''
-
-        #Fetching the song's Author name
-        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
-        $Song = $json._songAuthorName
-        $SongAuthorName = $Song -replace '\.[^.]+$'
-
-        #Final song's name
-        $SongName = "$SongAuthorName - $SongOriginalName"
-
-        #Fetching the cover's name
-        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
-        $Image = $json._coverImageFilename
-        $ImageName = $Image -replace '\.[^.]+$'
-        $ImageExtension =  $Image -replace '.*\.'
-
-        #Cover path
-        $CoverPath = Join-Path -Path $LevelPath -ChildPath "$ImageName.$ImageExtension"
 
         #Export
         exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
