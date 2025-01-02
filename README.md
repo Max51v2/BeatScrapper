@@ -3,7 +3,7 @@ If the text doesn't display properly, try to open it in the project and click on
 
 WARNING :
 You should never run a PowerShell script until you have read it made sure it is safe to do so !
-VirusTotal analysis : https://www.virustotal.com/gui/file/20e51d2b437873fed94a0ae68109f7c6dd0fa3c246cb46a8b3bc97b05ecf76ca
+VirusTotal analysis : https://www.virustotal.com/gui/file/9ac4464fb319c17bdb977c06410517c36ef7ca2f5de45604bcdbe215696d9b25
 
 I) Presentation
  This project's purpose is to export Beat Saber maps' songs in a specified folder (you can see an exemple in the project).
@@ -16,14 +16,10 @@ I) Presentation
  This script only works on Windows.
 
 II) How to execute the project ?
- 1) 1st option
-  a) Copy-Paste in Notepad and change the script options
-  b) Copy-Paste from Notepad into Powershell and press Enter
- 2) 2nd option
   a) Clone the repository or download it (releases tab)
   b) Change the script options (at the begining of the script) available here "[project path]\BeatScrapper.ps1"
   c) Launch the script
-   powershell.exe -ExecutionPolicy Bypass -File "[Download path]\BeatScrapper\BeatScrapper.ps1" $Host.Name
+    powershell.exe -ExecutionPolicy Bypass -File "[Download path]\BeatScrapper\BeatScrapper.ps1" $Host.Name
 
 III) Who should you contact if you have a question or an issue ?
  - Maxime VALLET
@@ -35,7 +31,7 @@ En cas de problèmes d'affichage, merci d'ouvrir la doc depuis le projet et de s
 
 ATTENTION :
 N'exécutez jamais de script PowerShell avant d'avoir lu son contenu et que vous ayez déterminé que cela soit sans danger !
-Analyse VirusTotal : https://www.virustotal.com/gui/file/20e51d2b437873fed94a0ae68109f7c6dd0fa3c246cb46a8b3bc97b05ecf76ca
+Analyse VirusTotal : https://www.virustotal.com/gui/file/9ac4464fb319c17bdb977c06410517c36ef7ca2f5de45604bcdbe215696d9b25
 
 I) Présentation
  Ce projet permet d'exporter les musiques des maps de Beat Saber dans un dossier spécifié (exemple dans le projet).
@@ -48,14 +44,10 @@ I) Présentation
  Ce script ne fonctionne que sur Windows.
 
 II) Comment exécuter le projet ?
- 1) 1ère option
-  a) Copier-coller le script dans Notepad et changez les options
-  b) Coper-coller le contenu de Notepad dans PowerShell et appuyez sur Entrer
- 2) 2ème option
   a) Clonez le répertoire ou téléchargez-le (onglet releases)
   b) Changez les options du script (au début du script) disponible ici "[chemin du project]\BeatScrapper.ps1"
   c) Lancez le script
-   powershell.exe -ExecutionPolicy Bypass -File "[Chemin Téléchargement]\BeatScrapper\BeatScrapper.ps1" $Host.Name
+    powershell.exe -ExecutionPolicy Bypass -File "[Chemin Téléchargement]\BeatScrapper\BeatScrapper.ps1" $Host.Name
 
 III) Qui contacter en cas de question ?
  - Maxime VALLET

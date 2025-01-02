@@ -3,17 +3,17 @@
 
 
 #Script parameter
-param ([string]$arg1 = "Default")
+param ($arg1 = "Default")
 
 ########################################################################## Variables ##########################################################################
 
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @("C:\Users\Maxime\Downloads\BSSongs")
+$BSPath = @()
 
 #Folder path where the songs will be stored
-$DestPath = "C:\Users\Maxime\Downloads\test"
+$DestPath = ""
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -69,8 +69,8 @@ $OverrideCompatCheck = "false"
 #Check if the song already exists (no matter the format)
 function doSongExist {
     param (
-        [string]$DestPath,
-        [string]$SongName
+        $DestPath,
+        $SongName
     )
     
     $SongExist = "false"
@@ -99,21 +99,22 @@ function doSongExist {
 #Export the song to either EGG or a choosen video format
 function exportSong {
     param (
-        [string]$SongFileName,
-        [string]$SongFileExtension,
-        [string]$SongName,
-        [string]$LevelPath,
-        [string]$DestPath,
-        [string]$c,
-        [string]$MusicNumber,
-        [string]$Format,
-        [string]$CoverPath,
-        [string]$AMD,
-        [string]$Preset
+        $SongFileName,
+        $SongFileExtension,
+        $SongName,
+        $LevelPath,
+        $DestPath,
+        $c,
+        $MusicNumber,
+        $Format,
+        $CoverPath,
+        $AMD,
+        $Preset,
+        $FolderName
     )
     
     #Progression
-    $global:Progression = $c/$MusicNumber
+    $Progression = $c/$MusicNumber
 
     #Dest music name + format
     $SongDestName = "$SongName.$Format"
@@ -139,8 +140,9 @@ function exportSong {
             $global:FullMessage += "H: $c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
 
             #Refresh Content displayed in the shell
-            GetProgression
-            Write-Host $global:Content -NoNewline
+            $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
+            $Content = $GetProgressionObj.Content
+            Write-Host $Content -NoNewline
             Out-Default
 
             return
@@ -152,8 +154,9 @@ function exportSong {
             $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
             #Refresh Content displayed in the shell
-            GetProgression
-            Write-Host $global:Content -NoNewline
+            $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
+            $Content = $GetProgressionObj.Content
+            Write-Host $Content -NoNewline
             Out-Default
 
             return
@@ -162,8 +165,9 @@ function exportSong {
         $global:FullMessage += "H: $c/$MusicNumber - Exporting : $SongDestName"
 
         #Refresh Content displayed in the shell
-        GetProgression
-        Write-Host $global:Content -NoNewline
+        $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
+        $Content = $GetProgressionObj.Content
+        Write-Host $Content -NoNewline
         Out-Default
         
         #Copy the song
@@ -177,12 +181,13 @@ function exportSong {
             $global:FullMessage += "H: Fallback to .egg"
 
             #Refresh Content displayed in the shell
-            GetProgression
-            Write-Host $global:Content -NoNewline
+            $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
+            $Content = $GetProgressionObj.Content
+            Write-Host $Content -NoNewline
             Out-Default
 
             #Relaunching the function with the EGG format
-            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -FolderName $FolderName
 
             return
         }
@@ -205,8 +210,9 @@ function exportSong {
                 $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
                 #Refresh Content displayed in the shell
-                GetProgression
-                Write-Host $global:Content -NoNewline
+                $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
+                $Content = $GetProgressionObj.Content
+                Write-Host $Content -NoNewline
                 Out-Default
 
                 return
@@ -217,8 +223,9 @@ function exportSong {
                 $global:FullMessage += "H: $c/$MusicNumber - Skipped (Exist) : $SongDestNameTest"
 
                 #Refresh Content displayed in the shell
-                GetProgression
-                Write-Host $global:Content -NoNewline
+                $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
+                $Content = $GetProgressionObj.Content
+                Write-Host $Content -NoNewline
                 Out-Default
 
                 return
@@ -227,9 +234,10 @@ function exportSong {
             $global:FullMessage += "H: $c/$MusicNumber - Exporting : $SongDestName"
 
             #Refresh Content displayed in the shell
-            GetProgression
+            $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
+            $Content = $GetProgressionObj.Content
             Clear-Host
-            Write-Host $global:Content -NoNewline
+            Write-Host $Content -NoNewline
             Out-Default
 
             #Block try-catch to catch FFmepg errors
@@ -256,12 +264,13 @@ function exportSong {
 
                 #Generate new content with spinner's first char on last line
                 $AddSpinner = "true"
-                GetProgression
+                $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
+                $Content = $GetProgressionObj.Content
 
                 #While the job is running, remplace le pipe placed by DiplayProgression in the last message (repeat with next chars)
                 while ($jobstat.State -ne "Completed") {
                     #Refresh Content displayed in the shell
-                    Write-Host $global:Content -NoNewline
+                    Write-Host $Content -NoNewline
                     Out-Default
 
                     #job state
@@ -278,8 +287,8 @@ function exportSong {
                     #Replacing previous char with the next one in $CharList
                     $Previous = $CharList[$LastCharIndex]
                     $Next = $CharList[$CharIndex]
-                    $global:Content = $global:Content -replace [regex]::Escape(".$Format $Previous"), ".$Format $Next"
-                    $global:Content = $global:Content -replace [regex]::Escape("$Previous $c/"), "$Next $c/"
+                    $Content = $Content -replace [regex]::Escape(".$Format $Previous"), ".$Format $Next"
+                    $Content = $Content -replace [regex]::Escape("$Previous $c/"), "$Next $c/"
 
                     #Index of the next char
                     if($CharIndex -eq ($CharList.Length - 1)){
@@ -333,12 +342,13 @@ function exportSong {
                 $global:FullMessage += "H: Fallback to .egg"
 
                 #Refresh Content displayed in the shell
-                GetProgression
-                Write-Host $global:Content -NoNewline
+                $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
+                $Content = $GetProgressionObj.Content
+                Write-Host $Content -NoNewline
                 Out-Default
 
                 #Relaunching the function with the EGG format
-                exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset
+                exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -FolderName $FolderName
             }
         }
     }
@@ -349,6 +359,10 @@ function exportSong {
 #Create a string that can fill the whole shell's window with the status of the script execution
 #Those informations are written to host without clearing the terminal to avoid flashing (though it's not donne in the function because of the spinner)
 function GetProgression {
+    param (
+        $FolderName,
+        $Progression
+    )
 
     #Width of the Shell Window (in characters)
     $CLIWidth = $Host.UI.RawUI.WindowSize.Width - 2
@@ -370,7 +384,7 @@ function GetProgression {
 
     #Reseting content to display
     #Start with return carriage because the first line the to be the last displayed making it flash (it doesn't matter because it goes out of the shell window because the message takes the windows)
-    $global:Content = "`n"
+    $Content = "`n"
     
     #For every line we can display in the Shell's Window
     $Line = 0
@@ -388,12 +402,12 @@ function GetProgression {
 
         #Adds a Newline
         if($Line -ge 1){
-            $global:Content += "`n"
+            $Content += "`n"
         }
 
         #Folder we're currently exporting from
         if($Line -eq 2){
-            $global:Content += "Exporting from folder : $global:FolderName"
+            $Content += "Exporting from folder : $FolderName"
         }
         #Diplay message from $FullMessage : No offset (codec info etc)
         elseif ($Line -lt 2) {
@@ -403,13 +417,13 @@ function GetProgression {
 
             #Adding the message and it's type to the content that'll be displayed
             if($MessageType -eq "H"){
-                $global:Content += "$Message"
+                $Content += "$Message"
             }
             elseif ($MessageType -eq "W") {
-                $global:Content += "WARNING : $Message"
+                $Content += "WARNING : $Message"
             }
                 elseif ($MessageType -eq "E") {
-                $global:Content += "ERROR : $Message"
+                $Content += "ERROR : $Message"
             }
         }
         #Diplay message from $FullMessage : offset
@@ -422,17 +436,17 @@ function GetProgression {
             if($MessageType -eq "H"){
                 #If it's the last line, we add the | (for the animation)
                 if(($Line -eq ($CLIHeight - 1)) -and ($AddSpinner -eq "true")){
-                    $global:Content += " "+$CharList[0]+"$Message "+$CharList[0]
+                    $Content += " "+$CharList[0]+"$Message "+$CharList[0]
                 }
                 else {
-                    $global:Content += "$Message"
+                    $Content += "$Message"
                 }
             }
             elseif ($MessageType -eq "W") {
-                $global:Content += "WARNING : $Message"
+                $Content += "WARNING : $Message"
             }
             elseif ($MessageType -eq "E") {
-                $global:Content += "ERROR : $Message"
+                $Content += "ERROR : $Message"
             }
         }
 
@@ -441,14 +455,14 @@ function GetProgression {
 
 
     #Number of # characters used to fil the bar
-    $FillNumber = [math]::Round($global:Progression * ($CLIWidth-7))
+    $FillNumber = [math]::Round($Progression * ($CLIWidth-7))
 
     #Progression percentage
-    $Percentage = [math]::Round($global:Progression * 100)
+    $Percentage = [math]::Round($Progression * 100)
 
     #Filling the extra lines before the progression bar
     while($LinesToAdd -gt 0){
-        $global:Content += "`n"
+        $Content += "`n"
 
         $LinesToAdd -= 1
     }
@@ -495,21 +509,30 @@ function GetProgression {
         $BarWidth += 1
     }
 
-    $global:Content += "$BarContent`n"
+    $Content += "$BarContent`n"
+
+    $GetProgressionObj = [PSCustomObject]@{
+        Content = $Content
+    }
+
+    return $GetProgressionObj
 }
 
 
 #Function that gives the status of the script execution
 function Report {
     #Refres the counter for every type of messages
-    GetMessageTypeOccurence -DesiredMessageType "W"
-    GetMessageTypeOccurence -DesiredMessageType "E"
-    GetMessageTypeOccurence -DesiredMessageType "S"
+    $GetMessageTypeOccurenceObj = GetMessageTypeOccurence -DesiredMessageType "W"
+    $NBWarnings = $GetMessageTypeOccurenceObj.Errors
+    $GetMessageTypeOccurenceObj = GetMessageTypeOccurence -DesiredMessageType "E"
+    $NBErrors = $GetMessageTypeOccurenceObj.Errors
+    $GetMessageTypeOccurenceObj = GetMessageTypeOccurence -DesiredMessageType "S"
+    $NBSevereErrors = $GetMessageTypeOccurenceObj.Errors
 
     Clear-Host
 
     #If there is a severe error, the script stopped before exporting any song therefore the message change
-    if($global:NBSevereErrors -gt 0){
+    if($NBSevereErrors -gt 0){
         Write-Host "`nThe script couldn't export Beat Saber songs because of some errors ^~^`n`n" -ForegroundColor Red
     }
     else {
@@ -517,15 +540,15 @@ function Report {
     }
     
     #Display warings
-    Write-Host "Number of Warnings : $global:NBWarnings" -ForegroundColor Yellow
+    Write-Host "Number of Warnings : $NBWarnings" -ForegroundColor Yellow
     PrintMessageType -DesiredMessageType "W"
  
     #Display errors
-    Write-Host "Number of Errors : $global:NBErrors" -ForegroundColor DarkYellow
+    Write-Host "Number of Errors : $NBErrors" -ForegroundColor DarkYellow
     PrintMessageType -DesiredMessageType "E"
 
     #Display severe errors
-    Write-Host "Number of Severe Errors : $global:NBSevereErrors" -ForegroundColor Red
+    Write-Host "Number of Severe Errors : $NBSevereErrors" -ForegroundColor Red
     PrintMessageType -DesiredMessageType "S"
 
     #Display log path
@@ -535,7 +558,7 @@ function Report {
     Write-Host "Any feedback welcome (new features or bugs) :)`n`n" -ForegroundColor Blue
 
     #Creation of the logs
-    $global:FullMessage += "`n`nNumber of Warnings : $global:NBWarnings`n`nNumber of Errors : $global:NBErrors`n`nNumber of Severe Errors : $global:NBSevereErrors`n"
+    $global:FullMessage += "`n`nNumber of Warnings : $NBWarnings`n`nNumber of Errors : $NBErrors`n`nNumber of Severe Errors : $NBSevereErrors`n"
     $global:FullMessage | Out-File $BSLog -Force
 }
 
@@ -543,9 +566,12 @@ function Report {
 #Count the number of occurence of a defined message type in FullMessage (H/W/E/...)
 function GetMessageTypeOccurence {
     param (
-        [String]$DesiredMessageType
+        $DesiredMessageType
     )
-    
+
+    $Errors = 0
+
+    #For every lines in FullMessages
     $Line=0
     while($Line -lt $global:FullMessage.Length){
         #Message type of the current line
@@ -553,30 +579,24 @@ function GetMessageTypeOccurence {
 
         #If the type of message is the same as desired
         if($MessageType -eq $DesiredMessageType){
-            #Incrementing the proper variable
-            if($DesiredMessageType -eq "H") {
-                $global:NBHost += 1
-            }
-            if($DesiredMessageType -eq "W"){
-                $global:NBWarnings += 1
-            }
-            elseif($DesiredMessageType -eq "E") {
-                $global:NBErrors += 1
-            }
-            elseif($DesiredMessageType -eq "S") {
-                $global:NBSevereErrors += 1
-            }
+            $Errors += 1
         }
 
         $Line += 1
     }
+
+    $GetMessageTypeOccurenceObj = [PSCustomObject]@{
+        Errors = $Errors
+    }
+
+    return $GetMessageTypeOccurenceObj
 }
 
 
 #Print all messages of a specified type (H/W/E/...)
 function PrintMessageType {
     param (
-        [String]$DesiredMessageType
+        $DesiredMessageType
     )
     
     $Line=0
@@ -621,11 +641,11 @@ function PowerShellVersionWarning {
 
 function GetSongInfo {
     param (
-        [string]$MapFolderName,
-        [string]$CurrentFolder,
-        [string]$BSPathIndex,
-        [string]$MusicNumber,
-        [string]$c
+        $MapFolderName,
+        $CurrentFolder,
+        $BSPathIndex,
+        $MusicNumber,
+        $c
     )
 
     $SkipSong = "false"
@@ -638,7 +658,7 @@ function GetSongInfo {
 
     #Check if the Info.dat file exist
     if (-not (Test-Path $SongInfoPath)) {
-        $global:FullMessage += "E: $c/$MusicNumber - Skipped (No Info.dat) : $global:FolderName"
+        $global:FullMessage += "E: $c/$MusicNumber - Skipped (No Info.dat) : $FolderName"
             
         $SkipSong = "true"
     }
@@ -690,13 +710,12 @@ function GetSongInfo {
 
 Clear-Host
 
-#Var init : they are global because it'll be modified in a function while being accessed in another
+#FullMessage is global because it can be modified in a function while being accessed in another
+#It's role is to hold the entirety of the messages that have to be displayed to the user (different than content whhich stores the messages that we currently display)
 $global:FullMessage = @()
-$global:NBSevereErrors = 0
-$global:NBErrors = 0
-$global:NBWarnings = 0
-$global:NBHost = 0
-$global:Content = ""
+
+#Var init
+$Content = ""
 $CLI = $arg1
 
 #Remove all jobs that exist
@@ -821,7 +840,7 @@ else {
             }
 
             #Ask for user input
-            $UserInput = Read-Host -Prompt "FFmpeg is required when exporting with a cover`n`nInstall FFmpeg using winget ? [proceed | cancel]"
+            $UserInput = Read-Host -Prompt "FFmpeg is required when exporting with a cover`n`nDo you want to install FFmpeg from the official winget repository ? [proceed | cancel]"
 
             if(($UserInput -eq "proceed") -or ($UserInput -eq "cancel")){
                 #Answer is obtained
@@ -911,12 +930,6 @@ else {
 $global:FullMessage += "H:  "
 
 
-#FFmpeg Benchmark
-#$BenchmarkDuration = Measure-Command {
-#    exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
-#}
-
-
 #Fetching how much maps there is so we can display the progression
 $MusicNumber=0
 $BSPathIndex=0
@@ -942,7 +955,7 @@ $BSPathIndex=0
 $c=0
 while ($BSPathIndex -le ($BSPath.Length-1)){
     #Name of the folder we're exporting songs from
-    $global:FolderName = Split-Path $BSPath[$BSPathIndex] -Leaf
+    $FolderName = Split-Path $BSPath[$BSPathIndex] -Leaf
 
     #Placeholder (skipped when errors are being displayed)
     $global:FullMessage += "H:  "
@@ -965,7 +978,7 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
         }
 
         #Export
-        exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist
+        exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName
     }
     $BSPathIndex = $BSPathIndex+1
 }
