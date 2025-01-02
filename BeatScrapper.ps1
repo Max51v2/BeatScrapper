@@ -48,12 +48,15 @@ $CharList = @("⠇", "⠋", "⠙", "⠸", "⠴", "⠦")
 #$CharList = @("|   ", ">   ", " >  ", "  > ", "   >", "   |", "   <", "  < "," <  ","<   ")
 
 #Time in ms between every char change (pattern displayed when exporting a song)
-$RefreshPeriod =  200
+$RefreshPeriod = 200
 
 #Progress bar characters
 $BarFillerChar = "■"
 $BarHeadChar = "►"
 $BarEmptyChar = " "
+
+#Override compatibility check on startup of the script
+$OverrideCompatCheck = "false"
 
 ################################################################################################################################################################
 
@@ -645,33 +648,36 @@ $pwd = pwd
 $BSLog = $pwd.Path+"\BeatScrapper_trace.log"
 
 #Check the type of Powershell instance the script is running in
-if($CLI -eq "Default"){
-    $CLI = $Host.Name
+if($OverrideCompatCheck -eq "false"){
+    if($CLI -eq "Default"){
+        $CLI = $Host.Name
+    }
+
+    #Check for windows terminal (not supported because of jitter)
+    if ($env:WT_SESSION) {
+        $CurrentPowerShellVersion = "Windows Terminal"
+
+        PowerShellVersionWarning
+    }
+
+    #Check for PowerShell Version (ISE : GetProgression broken and char not displaying properly | VSCode : jitter)
+    if ($CLI -match "ISE") {
+        $CurrentPowerShellVersion = "Windows PowerShell ISE"
+
+        PowerShellVersionWarning
+    }  
+    elseif ($CLI -match "Visual Studio Code") {
+        $CurrentPowerShellVersion = "VSCode"
+
+        PowerShellVersionWarning
+    } 
+    elseif ($CLI -match "VSCode") {
+        $CurrentPowerShellVersion = "VSCode"
+
+        PowerShellVersionWarning
+    }
 }
 
-#Check for windows terminal (not supported because of jitter)
-if ($env:WT_SESSION) {
-    $CurrentPowerShellVersion = "Windows Terminal"
-
-    PowerShellVersionWarning
-}
-
-#Check for PowerShell Version (ISE : GetProgression broken and char not displaying properly | VSCode : jitter)
-if ($CLI -match "ISE") {
-    $CurrentPowerShellVersion = "Windows PowerShell ISE"
-
-    PowerShellVersionWarning
-}  
-elseif ($CLI -match "Visual Studio Code") {
-    $CurrentPowerShellVersion = "VSCode"
-
-    PowerShellVersionWarning
-} 
-elseif ($CLI -match "VSCode") {
-    $CurrentPowerShellVersion = "VSCode"
-
-    PowerShellVersionWarning
-}
 
 #Check if the map and destination path were completed (empty by default)
 if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
@@ -734,25 +740,64 @@ $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $Pro
 #If the file exist then ffmpeg is installed
 if ($targetPath) {
     #Nothing
-} else {
-    Write-Output "Installing ffmpeg"
+} 
+else {
+    #While the user doesn't give an accepted anser, we repeat the process
+    #We only install FFmpeg if the cover is included
+    $Answer = "false"
+    $c = 0
+    $UserInput = "none"
+    if($IncludeCover -eq "true"){
+        while($Answer -eq "false"){
+            Clear-Host
 
-    #Install ffmpeg
-    winget install ffmpeg
+            if($c -ge 1){
+                Write-Host "Wrong input : $UserInput`n"
+            }
 
-    #Winget packet path
-    $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
+            #Ask for user input
+            $UserInput = Read-Host -Prompt "FFmpeg is required when exporting with a cover`n`nInstall FFmpeg using winget ? [proceed | cancel]"
 
-    #Search if the program is present (folder here)
-    $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
-
-    #Check if ffmpeg was installed
-    if ($targetPath) {
-        #ffmpeg installed
-        Clear-Host
+            if(($UserInput -eq "proceed") -or ($UserInput -eq "cancel")){
+                #Answer is obtained
+                $Answer = "true"
+            }
+            else {
+                $c += 1  
+            }
+        }
     }
-    else {
-        $global:FullMessage += "S: There was a problem with the ffmpeg installation"
+    
+
+    if($UserInput -eq "proceed"){
+        Write-Output "Installing ffmpeg"
+
+        #Install ffmpeg
+        winget install ffmpeg
+
+        #Winget packet path
+        $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
+
+        #Search if the program is present (folder here)
+        $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+
+        #Check if ffmpeg was installed
+        if ($targetPath) {
+            #ffmpeg installed
+            Clear-Host
+        }
+        else {
+            $global:FullMessage += "S: There was a problem with the ffmpeg installation"
+
+            #End Report
+            Report
+
+            #Stops the script
+            Break
+        }
+    }
+    elseif ($UserInput -eq "cancel") {
+        $global:FullMessage += "S: User refused to install FFmpeg"
 
         #End Report
         Report
@@ -800,6 +845,10 @@ else {
 }
 $global:FullMessage += "H:  "
 
+#FFmpeg Benchmark
+
+
+
 #Fetching how much maps there is so we can display the progression
 $MusicNumber=0
 $BSPathIndex=0
@@ -815,7 +864,10 @@ if (-not (Test-Path $DestPath)) {
 }
     
 #moving to ffmpeg executable folder
-Set-Location $targetPath
+if($IncludeCover -eq "true"){
+    Set-Location $targetPath
+}
+
 
 #For every BS Folder
 $BSPathIndex=0
