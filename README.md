@@ -23,7 +23,7 @@ II) How to execute the project ?
   a) Clone the repository or download it (releases tab)
   b) Change the script options (at the begining of the script) available here "[project path]\BeatScrapper.ps1"
   c) Launch the script
-   powershell.exe -ExecutionPolicy Bypass -File "[Download path]\BeatScrapper\BeatScrapper.ps1"
+   powershell.exe -ExecutionPolicy Bypass -File "[Download path]\BeatScrapper\BeatScrapper.ps1" $Host.Name
 
 III) Who should you contact if you have a question or an issue ?
  - Maxime VALLET
@@ -55,7 +55,7 @@ II) Comment exécuter le projet ?
   a) Clonez le répertoire ou téléchargez-le (onglet releases)
   b) Changez les options du script (au début du script) disponible ici "[chemin du project]\BeatScrapper.ps1"
   c) Lancez le script
-   powershell.exe -ExecutionPolicy Bypass -File "[Chemin Téléchargement]\BeatScrapper\BeatScrapper.ps1"
+   powershell.exe -ExecutionPolicy Bypass -File "[Chemin Téléchargement]\BeatScrapper\BeatScrapper.ps1" $Host.Name
 
 III) Qui contacter en cas de question ?
  - Maxime VALLET

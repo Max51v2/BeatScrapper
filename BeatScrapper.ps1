@@ -1,15 +1,19 @@
-#Author : Maxime VALLET
+﻿#Author : Maxime VALLET
 #Version : 7.8
+
+
+#Script parameter
+param ([string]$arg1 = "Default")
 
 ########################################################################## Variables ##########################################################################
 
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @()
+$BSPath = @("C:\Users\Maxime\Downloads\BSSongs")
 
 #Folder path where the songs will be stored
-$DestPath = ""
+$DestPath = "C:\Users\Maxime\Downloads\test"
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -601,6 +605,16 @@ function PrintMessageType {
 
     Write-Host "`n"
 }
+
+
+function PowerShellVersionWarning {
+    $global:FullMessage += "S: Please run this script in a compatible PowerShell instance (Current : $CurrentPowerShellVersion | Supported : Windows PowerShell and PowerShell 7)"
+
+    #End Report
+    Report
+    
+    break
+}
 #############################################################
 
 
@@ -615,6 +629,7 @@ $global:NBErrors = 0
 $global:NBWarnings = 0
 $global:NBHost = 0
 $global:Content = ""
+$CLI = $arg1
 
 #Remove all jobs that exist
 Remove-Job -Name "*" -Force
@@ -629,6 +644,34 @@ Set-Location $DestPath
 $pwd = pwd
 $BSLog = $pwd.Path+"\BeatScrapper_trace.log"
 
+#Check the type of Powershell instance the script is running in
+if($CLI -eq "Default"){
+    $CLI = $Host.Name
+}
+
+#Check for windows terminal (not supported because of jitter)
+if ($env:WT_SESSION) {
+    $CurrentPowerShellVersion = "Windows Terminal"
+
+    PowerShellVersionWarning
+}
+
+#Check for PowerShell Version (ISE : GetProgression broken and char not displaying properly | VSCode : jitter)
+if ($CLI -match "ISE") {
+    $CurrentPowerShellVersion = "Windows PowerShell ISE"
+
+    PowerShellVersionWarning
+}  
+elseif ($CLI -match "Visual Studio Code") {
+    $CurrentPowerShellVersion = "VSCode"
+
+    PowerShellVersionWarning
+} 
+elseif ($CLI -match "VSCode") {
+    $CurrentPowerShellVersion = "VSCode"
+
+    PowerShellVersionWarning
+}
 
 #Check if the map and destination path were completed (empty by default)
 if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
