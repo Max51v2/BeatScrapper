@@ -1,5 +1,5 @@
 ﻿#Author : Maxime VALLET
-#Version : 7.8
+#Version : 8.0
 
 
 #Script parameter
