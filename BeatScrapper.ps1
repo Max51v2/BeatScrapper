@@ -1,5 +1,5 @@
 ﻿#Author : Maxime VALLET
-#Version : 8.0
+#Version : 9.0
 
 
 #Script parameter
@@ -22,6 +22,11 @@ $IncludeCover = "true"
 #Export format (has to be supported by FFmpeg and be a video)
 #Only work when $IncludeCover="true"
 $Format="mp4"
+
+#Number of times the FFmepg benchmark runs 
+#Higher means more precision in the estimation but it'll take more time
+#Recommended : 3 - 5
+$BenchmarkIterations = 4
 
 #Define if the code uses the default codec : "true" | "false"
 #"false" make ffmpeg use adapted GPU HW codec (recommended)
@@ -58,6 +63,9 @@ $BarEmptyChar = " "
 #Override compatibility check on startup of the script
 $OverrideCompatCheck = "false"
 
+#Choose if you want the script to do an FFmpeg Benchmark in order to estimate the time left
+$doFFmpegBenchmark = "true"
+
 ################################################################################################################################################################
 
 
@@ -77,7 +85,7 @@ function doSongExist {
     $SongDestNameTest = "none"
     #List every songs in the destination folder and check if the name is identical to the song we're exporting
     Get-ChildItem -LiteralPath $DestPath | Select-Object -ExpandProperty Name | ForEach-Object{
-        #Fetching the song's name in the dest folder
+        #Retrieve the song's name in the dest folder
         $SongNameTest = $_ -replace '\.[^.]+$'
 
         #If the name of the current music is the same than the one we are exporting
@@ -114,7 +122,7 @@ function exportSong {
     )
     
     #Progression
-    $Progression = $c/$MusicNumber
+    $Progression = ($c-1)/$MusicNumber
 
     #Dest music name + format
     $SongDestName = "$SongName.$Format"
@@ -263,7 +271,7 @@ function exportSong {
                 $CharIndex = 0
 
                 #Generate new content with spinner's first char on last line
-                $AddSpinner = "true"
+                $global:AddSpinner = "true"
                 $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
                 $Content = $GetProgressionObj.Content
 
@@ -302,7 +310,7 @@ function exportSong {
                     Start-Sleep -Milliseconds $RefreshPeriod
                 }
 
-                $AddSpinner = "false"
+                $global:AddSpinner = "false"
 
                 #Remove the job
                 Remove-Job -Name "$c" -Force
@@ -361,7 +369,8 @@ function exportSong {
 function GetProgression {
     param (
         $FolderName,
-        $Progression
+        $Progression,
+        $ReplacementChar
     )
 
     #Width of the Shell Window (in characters)
@@ -434,8 +443,12 @@ function GetProgression {
 
             #Adding the message and it's type to the content that'll be displayed
             if($MessageType -eq "H"){
-                #If it's the last line, we add the | (for the animation)
-                if(($Line -eq ($CLIHeight - 1)) -and ($AddSpinner -eq "true")){
+                #If it's the last line, we add $ReplacementChar (for the animation when Retrieving info about songs)
+                if(($Line -eq ($CLIHeight - 1)) -and ($global:AddSpinner -eq "true") -and (! ($ReplacementChar -eq $null))){
+                    $Content += " "+$ReplacementChar+"$Message "+$ReplacementChar
+                }
+                #If it's the last line, we add $CharList[0] (for the animation when exporting songs with the cover)
+                elseif(($Line -eq ($CLIHeight - 1)) -and ($global:AddSpinner -eq "true")){
                     $Content += " "+$CharList[0]+"$Message "+$CharList[0]
                 }
                 else {
@@ -635,6 +648,7 @@ function PowerShellVersionWarning {
     #End Report
     Report
     
+    #Stops the script
     break
 }
 
@@ -645,7 +659,8 @@ function GetSongInfo {
         $CurrentFolder,
         $BSPathIndex,
         $MusicNumber,
-        $c
+        $c,
+        $logLevel
     )
 
     $SkipSong = "false"
@@ -656,25 +671,29 @@ function GetSongInfo {
     #Path of the info file that contains the cover and song names
     $SongInfoPath = Join-Path -Path $LevelPath -ChildPath "Info.dat"
 
-    #Check if the Info.dat file exist
-    if (-not (Test-Path $SongInfoPath)) {
+    #Check if the Info.dat file exist (silenced)
+    if ((-not (Test-Path $SongInfoPath)) -and (! $logLevel -eq "all")) {
+        $SkipSong = "true"
+    }
+     #Check if the Info.dat file exist (not silenced)
+    if ((-not (Test-Path $SongInfoPath)) -and ($logLevel -eq "all")) {
         $global:FullMessage += "E: $c/$MusicNumber - Skipped (No Info.dat) : $FolderName"
             
         $SkipSong = "true"
     }
     else {
-        #Fetching the song's name in the map folder
+        #Retrieve the song's name in the map folder
         $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
         $Song = $json._songFilename
         $SongFileName = $Song -replace '\.[^.]+$'
         $SongFileExtension =  $Song -replace '.*\.'
 
-        #Fetching the song's real name
+        #Retrieve the song's real name
         $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
         $Song = $json._songName
         $SongOriginalName = ($Song -replace '\.[^.]+$','') -replace '[<>:"/\\|?*]', ''
 
-        #Fetching the song's Author name
+        #Retrieve the song's Author name
         $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
         $Song = $json._songAuthorName
         $SongAuthorName = $Song -replace '\.[^.]+$'
@@ -682,7 +701,7 @@ function GetSongInfo {
         #Final song's name
         $SongName = "$SongAuthorName - $SongOriginalName"
 
-        #Fetching the cover's name
+        #Retrieve the cover's name
         $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
         $Image = $json._coverImageFilename
         $ImageName = $Image -replace '\.[^.]+$'
@@ -691,6 +710,13 @@ function GetSongInfo {
         #Cover path
         $CoverPath = Join-Path -Path $LevelPath -ChildPath "$ImageName.$ImageExtension"
 
+        #Check if the song exist exist (used for size and time calculations)
+        $SongExistObj = doSongExist -DestPath $DestPath -SongName $SongName
+        $SongExist = $SongExistObj.SongExist
+        if ($SongExist -eq "true") {
+            $SkipSong = "true"
+        }
+
         $GetSongInfoObj = [PSCustomObject]@{
             SongName = $SongName
             CoverPath = $CoverPath
@@ -698,10 +724,30 @@ function GetSongInfo {
             SongFileName = $SongFileName 
             SongFileExtension = $SongFileExtension
             LevelPath = $LevelPath
+            SongOriginalName = $SongOriginalName
         }
     }
 
     return $GetSongInfoObj
+}
+
+
+function DeleteBenchSong {
+    param (
+        $DestPath,
+        $SongName,
+        $Format
+    )
+    
+    $DestSongPath = Join-Path -Path $DestPath -ChildPath "$SongName.$Format"
+    $DestSongPathEgg = Join-Path -Path $DestPath -ChildPath "$SongName.egg"
+
+    if (Test-Path $DestSongPath) {
+        Remove-Item $DestSongPath
+    }
+    elseif (Test-Path $DestSongPathEgg) {
+        Remove-Item $DestSongPath
+    }
 }
 #############################################################
 
@@ -723,13 +769,14 @@ Remove-Job -Name "*" -Force
 
 #FFmpeg log file path
 Set-Location $DestPath
-$pwd = pwd
-$ErrorLog = $pwd.Path+"\ffmpeg_error.log"
+$location = Get-Location
+$ErrorLog = $location.Path+"\ffmpeg_error.log"
 
 #Script execution log file path
 Set-Location $DestPath
-$pwd = pwd
-$BSLog = $pwd.Path+"\BeatScrapper_trace.log"
+$location = Get-Location
+$BSLog = $location.Path+"\BeatScrapper_trace.log"
+
 
 #Check the type of Powershell instance the script is running in
 if($OverrideCompatCheck -eq "false"){
@@ -780,18 +827,6 @@ if (($BSPath.Length -eq 0) -or ($DestPath -eq $null) -or ($DestPath -eq "")) {
     Break
 }
 
-
-#Check if the format is correct
-$checkFormat = ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern "  $Format  "
-if($checkFormat -eq $null){
-    $global:FullMessage += "S: The format isn't supported by FFmpeg : $Format"
-
-    #End Report
-    Report
-
-    #Stops the script
-    Break
-}
 
 #Change the format to EGG if Include cover is false
 if($IncludeCover -eq "false"){
@@ -892,6 +927,25 @@ else {
 }
 
 
+#moving to ffmpeg executable folder
+Set-Location $targetPath
+
+
+if($IncludeCover -eq "true"){
+    #Check if the format is correct
+    $checkFormat = .\ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern "  $Format  "
+    if($checkFormat -eq $null){
+    $global:FullMessage += "S: The format isn't supported by FFmpeg : $Format"
+
+    #End Report
+    Report
+
+    #Stops the script
+    Break
+}
+}
+
+
 #Defining the codec that will be used (if $IncludeCover is set to "true")
 $Preset = "false"
 $AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
@@ -929,6 +983,77 @@ else {
 }
 $global:FullMessage += "H:  "
 
+#Placeholder (skipped when errors are being displayed)
+$global:FullMessage += "H:  "
+
+
+#FFmpeg Benchmark
+#Value of time it takes to export a secong of a song
+$TimePerSec = 0
+if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
+    $BIIndex = 1
+    $global:FullMessage += "H:"
+    $FolderName = "FFmpegBenchmark"
+
+    
+    #I Think I found a bug in PowerShell
+    #When the while in Measure-command, some commands on some itérations wouldn't execute (like I'd get : everything N°1 and only the message for N°3 etc)
+    #fix : run every test separately and add the time
+    $global:FullMessage += "H: Running Benchmark :"
+    while($BIIndex -le $BenchmarkIterations){
+        $BenchmarkDuration = Measure-Command {
+
+            #Retrieve song's informations from info.dat file located in the map's folder
+            $GetSongInfoObj = GetSongInfo -MapFolderName $FolderName -CurrentFolder $PSScriptRoot -MusicNumber $BenchmarkIterations -c $BIIndex -logLevel "all"
+            $SongName = $GetSongInfoObj.SongName
+            $CoverPath = $GetSongInfoObj.CoverPath
+            $SkipSong = $GetSongInfoObj.SkipSong
+            $SongFileName = $GetSongInfoObj.SongFileName 
+            $SongFileExtension = $GetSongInfoObj.SongFileExtension
+            $LevelPath = $GetSongInfoObj.LevelPath
+
+            #Bench song deletion
+            DeleteBenchSong -DestPath $DestPath -SongName $SongName -Format $Format
+
+            #Export
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $BIIndex -MusicNumber $BenchmarkIterations -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName
+        }
+        $BIIndex += 1
+
+        #Time used by the benchmark
+        #Current
+        $BenchmarkDurationMS = $BenchmarkDuration | Select-Object TotalMilliseconds
+
+        #Current + past value
+        $BenchmarkDurationTotMS = $BenchmarkDurationTotMS + [Math]::Round($BenchmarkDurationMS.TotalMilliseconds)
+    }
+
+    
+    #Retrieve the song's length
+    $DestSongPath = Join-Path -Path $PSScriptRoot -ChildPath "$FolderName"
+    $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
+    $MusicDurationS = .\ffprobe -i $DestSongPath -show_entries format=duration -v quiet -of csv="p=0"
+    $BenchmarkDurationPerSongMS = [Math]::Round($BenchmarkDurationTotMS/$BenchmarkIterations)
+
+    #Calculating the time it takes to export a second of content
+    $TimePerSec = [math]::Round(([math]::Round($MusicDurationS)*1000)/($BenchmarkDurationPerSongMS))
+
+    if($BenchmarkIterations -gt 1){
+        $global:FullMessage += "H: Exporting duration ($BenchmarkIterations songs): $TimePerSec ms of export per s"
+    }
+    else {
+        $global:FullMessage += "H: Exporting duration ($BenchmarkIterations song): $TimePerSec ms of export per s"
+    }
+
+    #Bench song deletion
+    DeleteBenchSong -DestPath $DestPath -SongName $SongName -Format $Format
+
+    #Refresh Content displayed in the shell
+    $GetProgressionObj = GetProgression -FolderName $FolderName -Progression 1
+    $Content = $GetProgressionObj.Content
+    Write-Host $Content -NoNewline
+    Out-Default
+}
 
 #Fetching how much maps there is so we can display the progression
 $MusicNumber=0
@@ -939,43 +1064,246 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
     $BSPathIndex = $BSPathIndex+1
 }
 
+
+#Retrieve info about the maps : length and size
+$MusicLengthS = @()
+$DopplegangerCheckList = @()
+$TotSize = 0
+$BSMapIndex = 1
+$BSPathIndex=0
+$Time = 0
+$CharIndex = 0
+$Next = 0
+$global:AddSpinner = "true"
+$global:FullMessage += "H:"
+$global:FullMessage += "H: Retrieving songs' lenth and size"
+#For every folder in BSPath
+while ($BSPathIndex -le ($BSPath.Length-1)){
+    $FolderName = Split-Path $BSPath[$BSPathIndex] -Leaf
+
+    #For every maps in the specified BSPath folder
+    Get-ChildItem -LiteralPath $BSPath[$BSPathIndex] -Directory | ForEach-Object{
+
+        #Really bad implementation of the spinner (change char when exec time > pause between every char)
+        #ex : pause between every char = 200 ms
+        #   => first cycle = 150 ms => no change (150 < 200)
+        #   => second cycle = 150 ms => next char (300 > 200)
+        #problem : elapsed time will be on par or greater than the pause (will vary as well)
+        #       => the slower the pc, the more obvious it'll be
+        #resolution : use a background task like I did on ExportSong but it would take too much time so it'll stay like that
+        if($BSMapIndex -gt 1){
+            $InfoDurationMS = $InfoDuration | Select-Object TotalMilliseconds
+            $InfoDurationMS = $InfoDurationMS.TotalMilliseconds
+
+            $Time = [Math]::Round($Time + $InfoDurationMS)
+
+            #If the elapsed time reaches the treshold, we change the char
+            if($Time -gt $RefreshPeriod){
+                #Replacing previous char with the next one in $CharList
+                $Next = $CharList[$CharIndex]
+
+                #Index of the precedent char (going backwards)
+                if($CharIndex -eq 0){
+                    $CharIndex = $CharList.Length - 1
+                }
+                else {
+                    $CharIndex -= 1
+                }
+
+                $Time = 0
+            }
+        }
+
+        #Refresh Content displayed in the shell
+        $Progression = $BSMapIndex / $MusicNumber
+        $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression -ReplacementChar $Next
+        $Content = $GetProgressionObj.Content
+        Write-Host $Content -NoNewline
+        Out-Default
+
+        $InfoDuration = Measure-Command{
+            #Retrieve song's informations from info.dat file located in the map's folder
+            $GetSongInfoObj = GetSongInfo -MapFolderName $_.Name -CurrentFolder $BSPath[$BSPathIndex] -logLevel "quiet"
+            $SongName = $GetSongInfoObj.SongName
+            $CoverPath = $GetSongInfoObj.CoverPath
+            $SkipSong = $GetSongInfoObj.SkipSong
+            $SongFileName = $GetSongInfoObj.SongFileName 
+            $SongFileExtension = $GetSongInfoObj.SongFileExtension
+
+            $DestSongPath = Join-Path -Path $BSPath[$BSPathIndex] -ChildPath $_.Name
+            $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
+
+            #Check every precendent entry to verify there wasn't an identical song exported before
+            $IndexDoppelgangerCheck = 0
+            while($IndexDoppelgangerCheck -lt $DopplegangerCheckList.Length){
+                #Check if there is a doppelganger in the list
+                if($DopplegangerCheckList[$IndexDoppelgangerCheck] -eq $SongName){
+                    $SkipSong = "true"
+                }
+
+                $IndexDoppelgangerCheck += 1
+            }
+
+            #Retrieve song's length
+            if($SkipSong -eq "false"){
+                $MusicDurationS = .\ffprobe -i $DestSongPath -show_entries format=duration -v quiet -of csv="p=0"
+                $MusicLengthS = $MusicLengthS + [Math]::Round($MusicDurationS)
+            }
+            else{
+                #Adding 0 so both Music length size and $c are the same size (in case i want to add an estimation per song)
+                $MusicLengthS = $MusicLengthS + 0
+            }
+            
+
+            #Retrieve song's size
+            if($SkipSong -eq "false"){
+                #Song size
+                if(Test-Path $DestSongPath){
+                    $File = Get-Item $DestSongPath -ErrorAction SilentlyContinue
+                    $TotSize = $TotSize + $File.Length
+                }
+                
+                #Cover size
+                if(Test-Path $CoverPath){
+                    $File = Get-Item $CoverPath -ErrorAction SilentlyContinue
+                    $TotSize = $TotSize + $File.Length
+                }
+            }
+
+            #We store every map song to check if there is two identical maps that aren't exported yet
+            $DopplegangerCheckList += $SongName
+
+            $BSMapIndex += 1
+        }
+    }
+
+    $BSPathIndex = $BSPathIndex+1
+}
+
+$global:AddSpinner = "false"
+
+
+#Calcultating the time required to export all of the songs
+$c = 0
+$TotTimeS = 0
+while ($c -lt $MusicLengthS.Length){
+    if($MusicLengthS[$c] -gt 0){
+        $TotTimeS = $TotTimeS + [Math]::Round(($MusicLengthS[$c]*$TimePerSec)/1000)
+    }
+
+    $c += 1
+}
+
+
+#Convert the time that is needed to export songs to : HHMMSS
+$seconds = $TotTimeS
+$minutes = 0
+$hours = 0
+while(($seconds -ge 60) -or ($minutes -ge 60)){
+    if($seconds -ge 60){
+        $minutes += 1
+        $seconds = $seconds - 60
+    }
+    if($minutes -ge 60){
+        $hours += 1
+        $minutes = $minutes - 60
+    }
+}
+if(($seconds -eq 0) -and ($minutes -eq 0) -and ($hours -eq 0)){
+    $TotTimeStr = "No time estimation as OverideCodec is true"
+}
+else {
+    $TotTimeStr = "$hours H | $minutes M | $seconds S"   
+}
+
+
+#If everything is already exported
+if(($TotSize -eq 0) -and ($doFFmpegBenchmark -eq "true")){
+    $global:FullMessage += "H: All of the songs have already been exported"
+
+    #End Report
+    Report
+
+    #Stops the script
+    break
+}
+
+
+#Changing Size unity
+$UserInput = "none"
+if([Math]::Round($TotSize/1Gb,3) -le 1){
+    $TotSize = [Math]::Round($TotSize/1Mb,3)
+    $TotSizeUnit = "MiB"
+}
+else{
+    $TotSize = [Math]::Round($TotSize/1Gb,3)
+    $TotSizeUnit = "GiB"
+}
+
+
+#Display the info abouts songs and ask for user's confirmation
+Clear-Host
+$Answer = "false"
+$c = 0
+#While the user doesn't give an accepted anser, we repeat the process
+while($Answer -eq "false"){
+    Clear-Host
+
+    if($c -ge 1){
+        Write-Host "Wrong input : $UserInput`n"
+    }
+
+    #Ask for user input
+    $UserInput = Read-Host -Prompt "The estimated size required is about $TotSize$TotSizeUnit (can vary because of the codec).`n`n$TotTimeStr .`n`n Do you want to export Beat Saber songs ? [proceed | cancel]"
+
+    if(($UserInput -eq "proceed") -or ($UserInput -eq "cancel")){
+        #Answer is obtained
+        $Answer = "true"
+    }
+    else {
+            $c += 1  
+    }
+}
+
+#Stop the script if the user type cancel
+if($UserInput -eq "cancel"){
+    $global:FullMessage += "S: User cancelled the export"
+
+    #End Report
+    Report
+
+    #Stops the script
+    break
+}
+
+
 #Create the target path if it doesn't exist
 if (-not (Test-Path $DestPath)) {
     mkdir $DestPath | Out-Null
 }
-    
-#moving to ffmpeg executable folder
-if($IncludeCover -eq "true"){
-    Set-Location $targetPath
-}
 
 
-#For every BS Folder
+#Exporting songs (took long enough lmao)
 $BSPathIndex=0
 $c=0
+Clear-Host
+#For every BS Folder
 while ($BSPathIndex -le ($BSPath.Length-1)){
     #Name of the folder we're exporting songs from
     $FolderName = Split-Path $BSPath[$BSPathIndex] -Leaf
-
-    #Placeholder (skipped when errors are being displayed)
-    $global:FullMessage += "H:  "
 
     #For every maps in the BS Folder
     Get-ChildItem -LiteralPath $BSPath[$BSPathIndex] -Directory | ForEach-Object{
         $c=$c+1
 
-        #Fetch song's informations from info.dat file located in the map's folder
-        $GetSongInfoObj = GetSongInfo -MapFolderName $_.Name -CurrentFolder $BSPath[$BSPathIndex] -MusicNumber $MusicNumber -c $c
+        #Retrieve song's informations from info.dat file located in the map's folder
+        $GetSongInfoObj = GetSongInfo -MapFolderName $_.Name -CurrentFolder $BSPath[$BSPathIndex] -MusicNumber $MusicNumber -c $c -logLevel "all"
         $SongName = $GetSongInfoObj.SongName
         $CoverPath = $GetSongInfoObj.CoverPath
         $SkipSong = $GetSongInfoObj.SkipSong
         $SongFileName = $GetSongInfoObj.SongFileName 
         $SongFileExtension = $GetSongInfoObj.SongFileExtension
         $LevelPath = $GetSongInfoObj.LevelPath
-
-        if($SkipSong -eq "true"){
-            return
-        }
 
         #Export
         exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName

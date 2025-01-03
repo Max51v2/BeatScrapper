@@ -3,7 +3,10 @@ If the text doesn't display properly, try to open it in the project and click on
 
 WARNING :
 You should never run a PowerShell script until you have read it made sure it is safe to do so !
-VirusTotal analysis : https://www.virustotal.com/gui/file/9ac4464fb319c17bdb977c06410517c36ef7ca2f5de45604bcdbe215696d9b25
+VirusTotal analysis : https://www.virustotal.com/gui/file/67a0d4b181ece489619bd3650f8cfd9fd27a9495fcc16d72801f4b9546dce067
+=> I like spending time to rectify what NICS lab flags as malicious just to get flaged even harder
+==> They're tripping, every flag is about how it could be tweaked to deal maximum damage.
+===> I personnaly think it's dumb as the hash WILL change if it's tampered with, makin this analysis useless anyway. So why rate it on potential malicious modifications when it's rated as is ?
 
 I) Presentation
  This project's purpose is to export Beat Saber maps' songs in a specified folder (you can see an exemple in the project).
@@ -31,7 +34,7 @@ En cas de problèmes d'affichage, merci d'ouvrir la doc depuis le projet et de s
 
 ATTENTION :
 N'exécutez jamais de script PowerShell avant d'avoir lu son contenu et que vous ayez déterminé que cela soit sans danger !
-Analyse VirusTotal : https://www.virustotal.com/gui/file/9ac4464fb319c17bdb977c06410517c36ef7ca2f5de45604bcdbe215696d9b25
+Analyse VirusTotal : https://www.virustotal.com/gui/file/67a0d4b181ece489619bd3650f8cfd9fd27a9495fcc16d72801f4b9546dce067
 
 I) Présentation
  Ce projet permet d'exporter les musiques des maps de Beat Saber dans un dossier spécifié (exemple dans le projet).
