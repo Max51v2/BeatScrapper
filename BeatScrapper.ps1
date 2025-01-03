@@ -997,7 +997,7 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
 
     
     #I Think I found a bug in PowerShell
-    #When the while in Measure-command, some commands on some itérations wouldn't execute (like I'd get : everything N°1 and only the message for N°3 etc)
+    #When in the while in Measure-command, some commands on random iterations wouldn't execute (like I'd get : everything N°1 and only the message for N°3 etc)
     #fix : run every test separately and add the time
     $global:FullMessage += "H: Running Benchmark :"
     while($BIIndex -le $BenchmarkIterations){
@@ -1074,6 +1074,7 @@ $BSPathIndex=0
 $Time = 0
 $CharIndex = 0
 $Next = 0
+$SkipNumber = 0
 $global:AddSpinner = "true"
 $global:FullMessage += "H:"
 $global:FullMessage += "H: Retrieving songs' lenth and size"
@@ -1133,7 +1134,7 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
             $DestSongPath = Join-Path -Path $BSPath[$BSPathIndex] -ChildPath $_.Name
             $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
 
-            #Check every precendent entry to verify there wasn't an identical song exported before
+            #Check every previous entry to verify there wasn't an identical song exported before
             $IndexDoppelgangerCheck = 0
             while($IndexDoppelgangerCheck -lt $DopplegangerCheckList.Length){
                 #Check if there is a doppelganger in the list
@@ -1152,6 +1153,9 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
             else{
                 #Adding 0 so both Music length size and $c are the same size (in case i want to add an estimation per song)
                 $MusicLengthS = $MusicLengthS + 0
+
+                #Count the number of skipped songs so we can add it later to the estimation (this is especially important on slow PCs as there is a lot of code to run)
+                $SkipNumber += 1
             }
             
 
@@ -1164,7 +1168,7 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
                 }
                 
                 #Cover size
-                if(Test-Path $CoverPath){
+                if((Test-Path $CoverPath) -and ($IncludeCover -eq "true")){
                     $File = Get-Item $CoverPath -ErrorAction SilentlyContinue
                     $TotSize = $TotSize + $File.Length
                 }
@@ -1183,7 +1187,7 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
 $global:AddSpinner = "false"
 
 
-#Calcultating the time required to export all of the songs
+#Calcultating the time required to export every songs
 $c = 0
 $TotTimeS = 0
 while ($c -lt $MusicLengthS.Length){
