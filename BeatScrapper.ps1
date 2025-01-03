@@ -1,5 +1,5 @@
 ﻿#Author : Maxime VALLET
-#Version : 9.0
+#Version : 10.0
 
 
 #Script parameter
@@ -25,12 +25,13 @@ $Format="mp4"
 
 #Number of times the FFmepg benchmark runs 
 #Higher means more precision in the estimation but it'll take more time
-#Recommended : 3 - 5
+#Recommended : 3 - 5 
 $BenchmarkIterations = 4
 
 #Define if the code uses the default codec : "true" | "false"
 #"false" make ffmpeg use adapted GPU HW codec (recommended)
 #"true"  make ffmpeg use the software codec (if ffmpeg gives errors or if the songs are empty (caused by the error))
+#=> if "true" Windows default player WILL NOT be able to read some songs (no idea why ("incompatible codec settings"))
 $OverrideCodec = "false"
 
 
@@ -65,6 +66,9 @@ $OverrideCompatCheck = "false"
 
 #Choose if you want the script to do an FFmpeg Benchmark in order to estimate the time left
 $doFFmpegBenchmark = "true"
+
+#Number of exports in between to clear-host (mostly to improve performance)
+$global:NBofExportBeforeClearingH = 5
 
 ################################################################################################################################################################
 
@@ -180,6 +184,9 @@ function exportSong {
         
         #Copy the song
         Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+
+        #Changing the state from "Exporting" to "Exported" in FullMessage
+        $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Exported"
     }
     #Video export
     else {
@@ -241,10 +248,19 @@ function exportSong {
 
             $global:FullMessage += "H: $c/$MusicNumber - Exporting : $SongDestName"
 
+            #Clear host only when we reach the defined number of exports
+            if ($global:IndexClearH -gt $global:NBofExportBeforeClearingH) {
+                Clear-Host
+
+                $global:IndexClearH = 1
+            }
+            else {
+                $global:IndexClearH += 1
+            }
+
             #Refresh Content displayed in the shell
             $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
             $Content = $GetProgressionObj.Content
-            Clear-Host
             Write-Host $Content -NoNewline
             Out-Default
 
@@ -276,7 +292,7 @@ function exportSong {
                 $Content = $GetProgressionObj.Content
 
                 #While the job is running, remplace le pipe placed by DiplayProgression in the last message (repeat with next chars)
-                while ($jobstat.State -ne "Completed") {
+                while ((Get-Job -Name "$c").State -eq "Running") {
                     #Refresh Content displayed in the shell
                     Write-Host $Content -NoNewline
                     Out-Default
@@ -339,6 +355,9 @@ function exportSong {
                         #Trigger catch clause (=> EGG fallback)
                         throw
                     }
+
+                    #Changing the state from "Exporting" to "Exported" in FullMessage
+                    $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Exported"
                 }
             } 
             catch {
@@ -346,6 +365,9 @@ function exportSong {
                 if(Test-Path $SongDestPath){
                     Remove-Item -LiteralPath $SongDestPath
                 }
+
+                #Changing the state from "Exporting" to "Failed" in FullMessage
+                $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Failed (=>Egg)"
 
                 $global:FullMessage += "H: Fallback to .egg"
 
@@ -416,7 +438,7 @@ function GetProgression {
 
         #Folder we're currently exporting from
         if($Line -eq 2){
-            $Content += "Exporting from folder : $FolderName"
+            $Content += " $FillerChar Exporting from folder : $FolderName"
         }
         #Diplay message from $FullMessage : No offset (codec info etc)
         elseif ($Line -lt 2) {
@@ -426,13 +448,13 @@ function GetProgression {
 
             #Adding the message and it's type to the content that'll be displayed
             if($MessageType -eq "H"){
-                $Content += "$Message"
+                $Content += " $FillerChar$Message"
             }
             elseif ($MessageType -eq "W") {
-                $Content += "WARNING : $Message"
+                $Content += ("  "+$FillerChar+"WARNING: $Message")
             }
                 elseif ($MessageType -eq "E") {
-                $Content += "ERROR : $Message"
+                $Content += ("  "+$FillerChar+"ERROR : $Message")
             }
         }
         #Diplay message from $FullMessage : offset
@@ -452,14 +474,14 @@ function GetProgression {
                     $Content += " "+$CharList[0]+"$Message "+$CharList[0]
                 }
                 else {
-                    $Content += "$Message"
+                    $Content += " $FillerChar$Message"
                 }
             }
             elseif ($MessageType -eq "W") {
-                $Content += "WARNING : $Message"
+                $Content += ("  "+$FillerChar+"WARNING : $Message")
             }
             elseif ($MessageType -eq "E") {
-                $Content += "ERROR : $Message"
+                $Content += ("  "+$FillerChar+"ERROR : $Message")
             }
         }
 
@@ -467,8 +489,13 @@ function GetProgression {
     }
 
 
+    #Bar content
+    $BarContent = "  $FillerChar"
+    $BarWidth = $BarContent.Length
+    $BarWidthInit = $BarWidth
+
     #Number of # characters used to fil the bar
-    $FillNumber = [math]::Round($Progression * ($CLIWidth-7))
+    $FillNumber = [math]::Round($Progression * ($CLIWidth-1-$BarWidth))
 
     #Progression percentage
     $Percentage = [math]::Round($Progression * 100)
@@ -481,11 +508,9 @@ function GetProgression {
     }
     
     #Filling the bar
-    $BarWidth = 0
-    $BarContent = ""
     While($BarWidth -le $CLIWidth){
         
-        if($BarWidth -eq 0){
+        if($BarWidth -eq $BarWidthInit){
             $BarContent += "["
         }
         #No arrow head if ■ is next to the ] at the end
@@ -672,11 +697,11 @@ function GetSongInfo {
     $SongInfoPath = Join-Path -Path $LevelPath -ChildPath "Info.dat"
 
     #Check if the Info.dat file exist (silenced)
-    if ((-not (Test-Path $SongInfoPath)) -and (! $logLevel -eq "all")) {
+    if ((-not (Test-Path $SongInfoPath)) -and ($logLevel -ne "all")) {
         $SkipSong = "true"
     }
      #Check if the Info.dat file exist (not silenced)
-    if ((-not (Test-Path $SongInfoPath)) -and ($logLevel -eq "all")) {
+    elseif ((-not (Test-Path $SongInfoPath)) -and ($logLevel -eq "all")) {
         $global:FullMessage += "E: $c/$MusicNumber - Skipped (No Info.dat) : $FolderName"
             
         $SkipSong = "true"
@@ -717,6 +742,16 @@ function GetSongInfo {
             $SkipSong = "true"
         }
 
+        $DestSongPath = Join-Path -Path $CurrentFolder -ChildPath $MapFolderName
+        $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
+        if(-not (Test-Path $DestSongPath)){
+            $SkipSong = "true"
+        }
+
+        if(-not (Test-Path $CoverPath)){
+            $SkipSong = "true"
+        }
+
         $GetSongInfoObj = [PSCustomObject]@{
             SongName = $SongName
             CoverPath = $CoverPath
@@ -746,7 +781,7 @@ function DeleteBenchSong {
         Remove-Item $DestSongPath
     }
     elseif (Test-Path $DestSongPathEgg) {
-        Remove-Item $DestSongPath
+        Remove-Item $DestSongPathEgg
     }
 }
 #############################################################
@@ -759,10 +794,18 @@ Clear-Host
 #FullMessage is global because it can be modified in a function while being accessed in another
 #It's role is to hold the entirety of the messages that have to be displayed to the user (different than content whhich stores the messages that we currently display)
 $global:FullMessage = @()
+$global:IndexClearH = 1
 
 #Var init
 $Content = ""
 $CLI = $arg1
+$FillerChar = ""
+$c=0
+while($c -lt $CharList[0].Length){
+    $FillerChar += " "
+
+    $c += 1
+}
 
 #Remove all jobs that exist
 Remove-Job -Name "*" -Force
@@ -997,7 +1040,7 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
 
     
     #I Think I found a bug in PowerShell
-    #When in the while in Measure-command, some commands on random iterations wouldn't execute (like I'd get : everything N°1 and only the message for N°3 etc)
+    #When in the while loop in Measure-command, some commands on random iterations wouldn't execute (like I'd get : everything N°1 and only the message for N°3 etc)
     #fix : run every test separately and add the time
     $global:FullMessage += "H: Running Benchmark :"
     while($BIIndex -le $BenchmarkIterations){
@@ -1039,10 +1082,50 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
     $TimePerSec = [math]::Round(([math]::Round($MusicDurationS)*1000)/($BenchmarkDurationPerSongMS))
 
     if($BenchmarkIterations -gt 1){
-        $global:FullMessage += "H: Exporting duration ($BenchmarkIterations songs): $TimePerSec ms of export per s"
+        $global:FullMessage += "H: Exporting duration ($BenchmarkIterations songs): $TimePerSec ms of Exporting/s"
     }
     else {
-        $global:FullMessage += "H: Exporting duration ($BenchmarkIterations song): $TimePerSec ms of export per s"
+        $global:FullMessage += "H: Exporting duration ($BenchmarkIterations song): $TimePerSec ms of Exporting/s"
+    }
+
+    #Running skipping Benchmark
+    $BIIndex = 1
+    $BenchmarkDurationTotMS = 0
+    $global:FullMessage += "H:"
+    $global:FullMessage += "H: Running Skipping Benchmark :"
+    while($BIIndex -le $BenchmarkIterations){
+        $BenchmarkDuration = Measure-Command {
+            
+            #Retrieve song's informations from info.dat file located in the map's folder
+            $GetSongInfoObj = GetSongInfo -MapFolderName $FolderName -CurrentFolder $PSScriptRoot -MusicNumber $BenchmarkIterations -c $BIIndex -logLevel "all"
+            $SongName = $GetSongInfoObj.SongName
+            $CoverPath = $GetSongInfoObj.CoverPath
+            $SkipSong = $GetSongInfoObj.SkipSong
+            $SongFileName = $GetSongInfoObj.SongFileName 
+            $SongFileExtension = $GetSongInfoObj.SongFileExtension
+            $LevelPath = $GetSongInfoObj.LevelPath
+
+            #Export
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $BIIndex -MusicNumber $BenchmarkIterations -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName
+        }
+        $BIIndex += 1
+
+        #Time used by the benchmark
+        #Current
+        $BenchmarkDurationMS = $BenchmarkDuration | Select-Object TotalMilliseconds
+
+        #Current + past value
+        $BenchmarkDurationTotMS = $BenchmarkDurationTotMS + [Math]::Round($BenchmarkDurationMS.TotalMilliseconds)
+    }
+
+    #Retrieve the song's length
+    $BenchmarkDurationPerSongMS = [Math]::Round($BenchmarkDurationTotMS/$BenchmarkIterations)
+
+    if($BenchmarkIterations -gt 1){
+        $global:FullMessage += "H: Skipping duration ($BenchmarkIterations songs): $BenchmarkDurationPerSongMS ms per skip"
+    }
+    else {
+        $global:FullMessage += "H: Skipping duration ($BenchmarkIterations songs): $BenchmarkDurationPerSongMS ms per skip"
     }
 
     #Bench song deletion
@@ -1073,11 +1156,10 @@ $BSMapIndex = 1
 $BSPathIndex=0
 $Time = 0
 $CharIndex = 0
-$Next = 0
 $SkipNumber = 0
 $global:AddSpinner = "true"
 $global:FullMessage += "H:"
-$global:FullMessage += "H: Retrieving songs' lenth and size"
+$global:FullMessage += "H: Retrieving songs' lenth and size :"
 #For every folder in BSPath
 while ($BSPathIndex -le ($BSPath.Length-1)){
     $FolderName = Split-Path $BSPath[$BSPathIndex] -Leaf
@@ -1162,16 +1244,15 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
             #Retrieve song's size
             if($SkipSong -eq "false"){
                 #Song size
-                if(Test-Path $DestSongPath){
-                    $File = Get-Item $DestSongPath -ErrorAction SilentlyContinue
-                    $TotSize = $TotSize + $File.Length
-                }
+                $File = Get-Item $DestSongPath -ErrorAction SilentlyContinue
+                $TotSize = $TotSize + $File.Length
                 
                 #Cover size
-                if((Test-Path $CoverPath) -and ($IncludeCover -eq "true")){
+                if($IncludeCover -eq "true"){
                     $File = Get-Item $CoverPath -ErrorAction SilentlyContinue
                     $TotSize = $TotSize + $File.Length
                 }
+                
             }
 
             #We store every map song to check if there is two identical maps that aren't exported yet
@@ -1198,6 +1279,9 @@ while ($c -lt $MusicLengthS.Length){
     $c += 1
 }
 
+#Adding every skip in the export time
+$TotTimeS = [Math]::Round($TotTimeS + ($SkipNumber * [Math]::Round($BenchmarkDurationPerSongMS/1000,3)))
+
 
 #Convert the time that is needed to export songs to : HHMMSS
 $seconds = $TotTimeS
@@ -1213,12 +1297,16 @@ while(($seconds -ge 60) -or ($minutes -ge 60)){
         $minutes = $minutes - 60
     }
 }
-if(($seconds -eq 0) -and ($minutes -eq 0) -and ($hours -eq 0)){
-    $TotTimeStr = "No time estimation as OverideCodec is true"
+if($doFFmpegBenchmark -eq "false"){
+    $TotTimeStr = "No time estimation as doFFmpegBenchmark is false"
+}
+elseif($IncludeCover -eq "false"){
+    $TotTimeStr = "No time estimation as IncludeCover is false"
 }
 else {
-    $TotTimeStr = "$hours H | $minutes M | $seconds S"   
+    $TotTimeStr = "The estimated time is $hours H $minutes M $seconds S (vary on a per machine and NB of songs basis)"
 }
+$global:FullMessage += "H: $TotTimeStr"
 
 
 #If everything is already exported
@@ -1244,6 +1332,8 @@ else{
     $TotSizeUnit = "GiB"
 }
 
+$global:FullMessage += "H: The estimated size required is about $TotSize$TotSizeUnit"
+
 
 #Display the info abouts songs and ask for user's confirmation
 Clear-Host
@@ -1258,7 +1348,8 @@ while($Answer -eq "false"){
     }
 
     #Ask for user input
-    $UserInput = Read-Host -Prompt "The estimated size required is about $TotSize$TotSizeUnit (can vary because of the codec).`n`n$TotTimeStr .`n`n Do you want to export Beat Saber songs ? [proceed | cancel]"
+    $Prompt = "  "+$FillerChar+"The estimated size required is about $TotSize$TotSizeUnit (can vary because of the codec).`n`n  "+$FillerChar+"$TotTimeStr .`n`n  "+$FillerChar+"Do you want to export Beat Saber songs ? [proceed | cancel]"
+    $UserInput = Read-Host -Prompt $Prompt
 
     if(($UserInput -eq "proceed") -or ($UserInput -eq "cancel")){
         #Answer is obtained
@@ -1288,6 +1379,8 @@ if (-not (Test-Path $DestPath)) {
 
 
 #Exporting songs (took long enough lmao)
+$global:FullMessage += "H: "
+$global:FullMessage += "H: Exporting songs :"
 $BSPathIndex=0
 $c=0
 Clear-Host
