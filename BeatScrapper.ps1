@@ -1068,18 +1068,19 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
         $BenchmarkDurationMS = $BenchmarkDuration | Select-Object TotalMilliseconds
 
         #Current + past value
-        $BenchmarkDurationTotMS = $BenchmarkDurationTotMS + [Math]::Round($BenchmarkDurationMS.TotalMilliseconds)
+        $BenchmarkDurationTotMS = $BenchmarkDurationTotMS + $BenchmarkDurationMS.TotalMilliseconds
     }
 
     
     #Retrieve the song's length
+    $BenchmarkDurationTotMS = [Math]::Round($BenchmarkDurationMS.TotalMilliseconds)
     $DestSongPath = Join-Path -Path $PSScriptRoot -ChildPath "$FolderName"
     $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
     $MusicDurationS = .\ffprobe -i $DestSongPath -show_entries format=duration -v quiet -of csv="p=0"
     $BenchmarkDurationPerSongMS = [Math]::Round($BenchmarkDurationTotMS/$BenchmarkIterations)
-
+    
     #Calculating the time it takes to export a second of content
-    $TimePerSec = [math]::Round(([math]::Round($MusicDurationS)*1000)/($BenchmarkDurationPerSongMS))
+    $TimePerSec = [math]::Round([math]::Round($MusicDurationS)/($BenchmarkDurationPerSongMS))
 
     if($BenchmarkIterations -gt 1){
         $global:FullMessage += "H: Exporting duration ($BenchmarkIterations songs): $TimePerSec ms of Exporting/s"
@@ -1273,7 +1274,7 @@ $c = 0
 $TotTimeS = 0
 while ($c -lt $MusicLengthS.Length){
     if($MusicLengthS[$c] -gt 0){
-        $TotTimeS = $TotTimeS + [Math]::Round(($MusicLengthS[$c]*$TimePerSec)/1000)
+        $TotTimeS = $TotTimeS + ($MusicLengthS[$c] * $TimePerSec) / 1000
     }
 
     $c += 1
@@ -1281,7 +1282,6 @@ while ($c -lt $MusicLengthS.Length){
 
 #Adding every skip in the export time
 $TotTimeS = [Math]::Round($TotTimeS + ($SkipNumber * [Math]::Round($BenchmarkDurationPerSongMS/1000,3)))
-
 
 #Convert the time that is needed to export songs to : HHMMSS
 $seconds = $TotTimeS
