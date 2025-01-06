@@ -1,5 +1,5 @@
 ﻿#Author : Maxime VALLET
-#Version : 10.0
+#Version : 10.4
 
 
 #Script parameter
@@ -92,6 +92,9 @@ function doSongExist {
         #Retrieve the song's name in the dest folder
         $SongNameTest = $_ -replace '\.[^.]+$'
 
+        $InvalidCharsPattern = '[:*?"<>|]'
+        $SongName = $SongName -replace $InvalidCharsPattern, ''
+
         #If the name of the current music is the same than the one we are exporting
         if ($SongNameTest -eq $SongName){
             $SongExist = "true"
@@ -129,7 +132,7 @@ function exportSong {
     $Progression = ($c-1)/$MusicNumber
 
     #Dest music name + format
-    $SongDestName = "$SongName.$Format"
+    $SongDestName = $SongName+"."+$Format
 
     #Source music name + format
     $SourceSongName = "$SongFileName.$SongFileExtension"
@@ -138,6 +141,8 @@ function exportSong {
     $SongPath = Join-Path -Path $LevelPath -ChildPath $SourceSongName
 
     #Full path of where the song will be copied
+    $InvalidCharsPattern = '[:*?"<>|]'
+    $SongDestName = $SongDestName -replace $InvalidCharsPattern, ''
     $SongDestPath = Join-Path -Path $DestPath -ChildPath $SongDestName
 
     #Check if the song already exists (no matter the format)
@@ -161,7 +166,7 @@ function exportSong {
         }
 
         #Check if the song exists in the map folder
-        if (-not (Test-Path $SongPath)) {
+        if (-not (Test-Path -LiteralPath $SongPath)) {
             $global:FullMessage += "E: No music at this path : $SongPath"
             $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
@@ -183,7 +188,7 @@ function exportSong {
         Out-Default
         
         #Copy the song
-        Copy-Item -Path $SongPath -Destination $SongDestPath -Force
+        Copy-Item -LiteralPath $SongPath -Destination $SongDestPath -Force
 
         #Changing the state from "Exporting" to "Exported" in FullMessage
         $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Exported"
@@ -191,7 +196,7 @@ function exportSong {
     #Video export
     else {
         #If the cover doesn't exist
-        if(-not (Test-Path $CoverPath)){
+        if(-not (Test-Path -LiteralPath $CoverPath)){
             $global:FullMessage += "W: No cover for $SongName"
             $global:FullMessage += "H: Fallback to .egg"
 
@@ -220,7 +225,7 @@ function exportSong {
             }
 
             #Check if the song exists in the map folder
-            if (-not (Test-Path $SongPath)) {
+            if (-not (Test-Path -LiteralPath $SongPath)) {
                 $global:FullMessage += "E: No music at this path : $SongPath"
                 $global:FullMessage += "H: $c/$MusicNumber - Skipped (No song in map folder) : $SongDestName"
 
@@ -332,9 +337,9 @@ function exportSong {
                 Remove-Job -Name "$c" -Force
 
                 #if there is a log file (imply that there is an error)
-                if (Test-Path $ErrorLog) {
+                if (Test-Path -LiteralPath $ErrorLog) {
                     #Get FFmpeg errors
-                    $errors = Get-Content $ErrorLog
+                    $errors = Get-Content -LiteralPath $ErrorLog
                     Remove-Item $ErrorLog
 
                     #If there is errors
@@ -362,7 +367,7 @@ function exportSong {
             } 
             catch {
                 #Deletion of the file if it exists (would be empty in that case)
-                if(Test-Path $SongDestPath){
+                if(Test-Path -LiteralPath $SongDestPath){
                     Remove-Item -LiteralPath $SongDestPath
                 }
 
@@ -697,29 +702,29 @@ function GetSongInfo {
     $SongInfoPath = Join-Path -Path $LevelPath -ChildPath "Info.dat"
 
     #Check if the Info.dat file exist (silenced)
-    if ((-not (Test-Path $SongInfoPath)) -and ($logLevel -ne "all")) {
+    if ((-not (Test-Path -LiteralPath $SongInfoPath)) -and ($logLevel -ne "all")) {
         $SkipSong = "true"
     }
      #Check if the Info.dat file exist (not silenced)
-    elseif ((-not (Test-Path $SongInfoPath)) -and ($logLevel -eq "all")) {
-        $global:FullMessage += "E: $c/$MusicNumber - Skipped (No Info.dat) : $FolderName"
+    elseif ((-not (Test-Path -LiteralPath $SongInfoPath)) -and ($logLevel -eq "all")) {
+        $global:FullMessage += "E: $c/$MusicNumber - Skipped (No Info.dat) : $SongInfoPath"
             
         $SkipSong = "true"
     }
     else {
         #Retrieve the song's name in the map folder
-        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $json = (Get-Content -LiteralPath $SongInfoPath -Raw -Encoding UTF8) | ConvertFrom-Json
         $Song = $json._songFilename
         $SongFileName = $Song -replace '\.[^.]+$'
         $SongFileExtension =  $Song -replace '.*\.'
 
         #Retrieve the song's real name
-        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $json = (Get-Content -LiteralPath $SongInfoPath -Raw -Encoding UTF8) | ConvertFrom-Json
         $Song = $json._songName
         $SongOriginalName = ($Song -replace '\.[^.]+$','') -replace '[<>:"/\\|?*]', ''
 
         #Retrieve the song's Author name
-        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $json = (Get-Content -LiteralPath $SongInfoPath -Raw -Encoding UTF8) | ConvertFrom-Json
         $Song = $json._songAuthorName
         $SongAuthorName = $Song -replace '\.[^.]+$'
 
@@ -727,7 +732,7 @@ function GetSongInfo {
         $SongName = "$SongAuthorName - $SongOriginalName"
 
         #Retrieve the cover's name
-        $json = (Get-Content $SongInfoPath -Raw) | ConvertFrom-Json
+        $json = (Get-Content -LiteralPath $SongInfoPath -Raw -Encoding UTF8) | ConvertFrom-Json
         $Image = $json._coverImageFilename
         $ImageName = $Image -replace '\.[^.]+$'
         $ImageExtension =  $Image -replace '.*\.'
@@ -744,11 +749,11 @@ function GetSongInfo {
 
         $DestSongPath = Join-Path -Path $CurrentFolder -ChildPath $MapFolderName
         $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
-        if(-not (Test-Path $DestSongPath)){
+        if(-not (Test-Path -LiteralPath $DestSongPath)){
             $SkipSong = "true"
         }
 
-        if(-not (Test-Path $CoverPath)){
+        if(-not (Test-Path -LiteralPath $CoverPath)){
             $SkipSong = "true"
         }
 
@@ -777,10 +782,10 @@ function DeleteBenchSong {
     $DestSongPath = Join-Path -Path $DestPath -ChildPath "$SongName.$Format"
     $DestSongPathEgg = Join-Path -Path $DestPath -ChildPath "$SongName.egg"
 
-    if (Test-Path $DestSongPath) {
+    if (Test-Path -LiteralPath $DestSongPath) {
         Remove-Item $DestSongPath
     }
-    elseif (Test-Path $DestSongPathEgg) {
+    elseif (Test-Path -LiteralPath $DestSongPathEgg) {
         Remove-Item $DestSongPathEgg
     }
 }
@@ -813,12 +818,12 @@ Remove-Job -Name "*" -Force
 #FFmpeg log file path
 Set-Location $DestPath
 $location = Get-Location
-$ErrorLog = $location.Path+"\ffmpeg_error.log"
+$ErrorLog = Join-Path -Path $location.Path -ChildPath "ffmpeg_error.log"
 
 #Script execution log file path
 Set-Location $DestPath
 $location = Get-Location
-$BSLog = $location.Path+"\BeatScrapper_trace.log"
+$BSLog = Join-Path -Path $location.Path -ChildPath "BeatScrapper_trace.log"
 
 
 #Check the type of Powershell instance the script is running in
@@ -879,7 +884,7 @@ if($IncludeCover -eq "false"){
 #Check if all the paths in the var BSPath exist in the FS
 $BSPathIndex=0
 while ($BSPathIndex -le ($BSPath.Length-1)){
-    if (-not (Test-Path $BSPath[$BSPathIndex])) {
+    if (-not (Test-Path -LiteralPath $BSPath[$BSPathIndex])) {
         $WrongPath = $BSPath[$BSPathIndex]
         $global:FullMessage += "S: Path doesn't exist : $WrongPath"
 
@@ -1043,6 +1048,7 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
     #When in the while loop in Measure-command, some commands on random iterations wouldn't execute (like I'd get : everything N°1 and only the message for N°3 etc)
     #fix : run every test separately and add the time
     $global:FullMessage += "H: Running Benchmark :"
+    $BenchmarkDurationTotMS = 0
     while($BIIndex -le $BenchmarkIterations){
         $BenchmarkDuration = Measure-Command {
 
@@ -1073,14 +1079,14 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
 
     
     #Retrieve the song's length
-    $BenchmarkDurationTotMS = [Math]::Round($BenchmarkDurationMS.TotalMilliseconds)
-    $DestSongPath = Join-Path -Path $PSScriptRoot -ChildPath "$FolderName"
+    $BenchmarkDurationTotMS = [Math]::Round($BenchmarkDurationTotMS)
+    $DestSongPath = Join-Path -Path $PSScriptRoot -ChildPath $FolderName
     $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
     $MusicDurationS = .\ffprobe -i $DestSongPath -show_entries format=duration -v quiet -of csv="p=0"
     $BenchmarkDurationPerSongMS = [Math]::Round($BenchmarkDurationTotMS/$BenchmarkIterations)
     
     #Calculating the time it takes to export a second of content
-    $TimePerSec = [math]::Round([math]::Round($MusicDurationS)/($BenchmarkDurationPerSongMS))
+    $TimePerSec = [math]::Round(($BenchmarkDurationPerSongMS)/[math]::Round($MusicDurationS),3)
 
     if($BenchmarkIterations -gt 1){
         $global:FullMessage += "H: Exporting duration ($BenchmarkIterations songs): $TimePerSec ms of Exporting/s"
@@ -1245,8 +1251,8 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
             #Retrieve song's size
             if($SkipSong -eq "false"){
                 #Song size
-                $File = Get-Item $DestSongPath -ErrorAction SilentlyContinue
-                $TotSize = $TotSize + $File.Length
+                #$File = Get-Item $DestSongPath -ErrorAction SilentlyContinue
+                #$TotSize = $TotSize + $File.Length
                 
                 #Cover size
                 if($IncludeCover -eq "true"){
@@ -1282,6 +1288,7 @@ while ($c -lt $MusicLengthS.Length){
 
 #Adding every skip in the export time
 $TotTimeS = [Math]::Round($TotTimeS + ($SkipNumber * [Math]::Round($BenchmarkDurationPerSongMS/1000,3)))
+
 
 #Convert the time that is needed to export songs to : HHMMSS
 $seconds = $TotTimeS
@@ -1373,7 +1380,7 @@ if($UserInput -eq "cancel"){
 
 
 #Create the target path if it doesn't exist
-if (-not (Test-Path $DestPath)) {
+if (-not (Test-Path -LiteralPath $DestPath)) {
     mkdir $DestPath | Out-Null
 }
 
