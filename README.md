@@ -6,7 +6,7 @@ You should never run a PowerShell script until you have read it made sure it is 
 VirusTotal analysis : https://www.virustotal.com/gui/file/5208259095b996628e2494f0e2282bde3423894bb30849e931443c64922ff9d4
 
 I) Presentation
- This project's purpose is to export Beat Saber maps' songs in a specified folder (you can see an exemple in the project).
+ This project's purpose is to export Beat Saber maps' songs in a specified folder.
  Functionnalities :
   - Export songs from multiple maps folders
   - Export to EGG or your prefered video format with the cover included in the video
@@ -14,6 +14,7 @@ I) Presentation
   - ✨smooth animations in real time : progression bar + history of latest songs exported + activity indicator (spinner) ✨
    => fit in the entirety of the PowerShell window
  This script only works on Windows.
+ Demonstration : https://www.youtube.com/watch?v=YthqL0C6YyU
 
 II) How to execute the project ?
   a) Clone the repository or download it (releases tab)
@@ -42,6 +43,7 @@ I) Présentation
   - ✨animations fluides et en temps réel : barre de progression + historique des dernière musiques exportées + indicateur d'activité (spinner) ✨
    => fit in the entirety of the PowerShell window
  Ce script ne fonctionne que sur Windows.
+ Démonstration : https://www.youtube.com/watch?v=YthqL0C6YyU
 
 II) Comment exécuter le projet ?
   a) Clonez le répertoire ou téléchargez-le (onglet releases)
