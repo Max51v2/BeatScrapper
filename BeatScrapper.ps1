@@ -1251,8 +1251,8 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
             #Retrieve song's size
             if($SkipSong -eq "false"){
                 #Song size
-                #$File = Get-Item $DestSongPath -ErrorAction SilentlyContinue
-                #$TotSize = $TotSize + $File.Length
+                $File = Get-Item $DestSongPath -ErrorAction SilentlyContinue
+                $TotSize = $TotSize + $File.Length
                 
                 #Cover size
                 if($IncludeCover -eq "true"){

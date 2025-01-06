@@ -3,7 +3,7 @@ If the text doesn't display properly, try to open it in the project and click on
 
 WARNING :
 You should never run a PowerShell script until you have read it made sure it is safe to do so !
-VirusTotal analysis : https://www.virustotal.com/gui/file/7e4ad4fb65d71487980f64e008da50dadd8d28c5135c3e8faf3e6a2f78c73594
+VirusTotal analysis : https://www.virustotal.com/gui/file/5208259095b996628e2494f0e2282bde3423894bb30849e931443c64922ff9d4
 
 I) Presentation
  This project's purpose is to export Beat Saber maps' songs in a specified folder (you can see an exemple in the project).
@@ -31,7 +31,7 @@ En cas de problèmes d'affichage, merci d'ouvrir la doc depuis le projet et de s
 
 ATTENTION :
 N'exécutez jamais de script PowerShell avant d'avoir lu son contenu et que vous ayez déterminé que cela soit sans danger !
-Analyse VirusTotal : https://www.virustotal.com/gui/file/7e4ad4fb65d71487980f64e008da50dadd8d28c5135c3e8faf3e6a2f78c73594
+Analyse VirusTotal : https://www.virustotal.com/gui/file/5208259095b996628e2494f0e2282bde3423894bb30849e931443c64922ff9d4
 
 I) Présentation
  Ce projet permet d'exporter les musiques des maps de Beat Saber dans un dossier spécifié (exemple dans le projet).
