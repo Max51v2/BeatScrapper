@@ -602,10 +602,11 @@ function Report {
     $global:FullMessage | Out-File $BSLog -Force
 
     if($OS -eq "Unix"){
-        #Change target folder permission
-        sudo chmod 777 -R $DestPath
+        if(($DestPath -ne "")){
+            #Change target folder permission
+            sudo chmod 777 -R $DestPath
+        }
     }
-    
 }
 
 
