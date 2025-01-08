@@ -3,7 +3,9 @@ If the text doesn't display properly, try to open it in the project and click on
 
 WARNING :
 You should never run a PowerShell script until you have read it made sure it is safe to do so !
-VirusTotal analysis : https://www.virustotal.com/gui/file/5208259095b996628e2494f0e2282bde3423894bb30849e931443c64922ff9d4
+VirusTotal analysis : 
+  - BeatScrapper.ps1 : https://www.virustotal.com/gui/file/db388de14fa73216a36fd6c107495969fcb13c088db641f5ba4694ee302e7ab5
+  - Init.sh : https://www.virustotal.com/gui/file/18afa8a56f450ea1611b39ec6f0f2bce4d2f18f7ee9f038d3015965fc6bb3b36
 
 I) Presentation
  This project's purpose is to export Beat Saber maps' songs in a specified folder.
@@ -35,7 +37,9 @@ En cas de problèmes d'affichage, merci d'ouvrir la doc depuis le projet et de s
 
 ATTENTION :
 N'exécutez jamais de script PowerShell avant d'avoir lu son contenu et que vous ayez déterminé que cela soit sans danger !
-Analyse VirusTotal : https://www.virustotal.com/gui/file/5208259095b996628e2494f0e2282bde3423894bb30849e931443c64922ff9d4
+Analyse VirusTotal : 
+  - BeatScrapper.ps1 : https://www.virustotal.com/gui/file/db388de14fa73216a36fd6c107495969fcb13c088db641f5ba4694ee302e7ab5
+  - Init.sh : https://www.virustotal.com/gui/file/18afa8a56f450ea1611b39ec6f0f2bce4d2f18f7ee9f038d3015965fc6bb3b36
 
 I) Présentation
  Ce projet permet d'exporter les musiques des maps de Beat Saber dans un dossier spécifié (exemple dans le projet).
