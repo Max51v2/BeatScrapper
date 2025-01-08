@@ -13,14 +13,16 @@ I) Presentation
   - Choose your own codec
   - ✨smooth animations in real time : progression bar + history of latest songs exported + activity indicator (spinner) ✨
    => fit in the entirety of the PowerShell window
- This script only works on Windows.
+ This script only works on Windows and Linux (Debian based)
  Demonstration : https://www.youtube.com/watch?v=YthqL0C6YyU
 
 II) How to execute the project ?
   a) Clone the repository or download it (releases tab)
   b) Change the script options (at the begining of the script) available here "[project path]\BeatScrapper.ps1"
-  c) Launch the script
-    powershell.exe -ExecutionPolicy Bypass -File "[Download path]\BeatScrapper\BeatScrapper.ps1" $Host.Name
+  Windows :
+      powershell.exe -ExecutionPolicy Bypass -File "[Download Path]\BeatScrapper\BeatScrapper.ps1" $Host.Name
+    Linux (Debian based) :
+      pwsh -ExecutionPolicy Bypass -File "[Download Path]\BeatScrapper\BeatScrapper.ps1" $Host.Name
 
 III) Who should you contact if you have a question or an issue ?
  - Maxime VALLET
@@ -42,14 +44,18 @@ I) Présentation
   - Choisissez votre propre codec
   - ✨animations fluides et en temps réel : barre de progression + historique des dernière musiques exportées + indicateur d'activité (spinner) ✨
    => fit in the entirety of the PowerShell window
- Ce script ne fonctionne que sur Windows.
+ Ce script ne fonctionne que sur Windows et Linux (OS basé sur Debian)
  Démonstration : https://www.youtube.com/watch?v=YthqL0C6YyU
 
 II) Comment exécuter le projet ?
   a) Clonez le répertoire ou téléchargez-le (onglet releases)
   b) Changez les options du script (au début du script) disponible ici "[chemin du project]\BeatScrapper.ps1"
   c) Lancez le script
-    powershell.exe -ExecutionPolicy Bypass -File "[Chemin Téléchargement]\BeatScrapper\BeatScrapper.ps1" $Host.Name
+    Windows :
+      powershell.exe -ExecutionPolicy Bypass -File "[Chemin Téléchargement]\BeatScrapper\BeatScrapper.ps1" $Host.Name
+    Linux (OS basé sur Debian) :
+      sudo chmod 777 [Chemin Téléchargement]\BeatScrapper\Init.sh
+      sudo [Chemin Téléchargement]\BeatScrapper\Init.sh
 
 III) Qui contacter en cas de question ?
  - Maxime VALLET

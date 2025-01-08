@@ -826,8 +826,37 @@ $location = Get-Location
 $BSLog = Join-Path -Path $location.Path -ChildPath "BeatScrapper_trace.log"
 
 
-#Check the type of Powershell instance the script is running in
+
 if($OverrideCompatCheck -eq "false"){
+    #Check the OS the script is running in
+    $OS = [System.Environment]::OSVersion.Platform
+
+    #If if it's a unix based OS we check the distribution
+    if($OS -eq "Unix"){
+        if (-not (Test-Path -LiteralPath "/usr/bin/apt")){
+            $global:FullMessage += "S: Unsuported OS (APT required)"
+    
+            #End Report
+            Report
+
+            #Stops the script
+            Break
+        }
+    }
+    elseif($OS -eq "Windows"){
+        #No action requiered
+    }
+    else{
+        $global:FullMessage += "S: Unknown OS : $OS"
+    
+        #End Report
+        Report
+
+        #Stops the script
+        Break
+    }
+
+    #Check the type of Powershell instance the script is running in
     if($CLI -eq "Default"){
         $CLI = $Host.Name
     }
@@ -897,64 +926,75 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
     $BSPathIndex = $BSPathIndex+1
 }
 
-#Winget packet path
-$wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
+if($OS -eq "Windows"){
+    #Winget packet path
+    $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
 
-#Search if the program is present (folder here)
-$ProgramName = "ffmpeg.exe"
-$targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+    #Search if the program is present (folder here)
+    $ProgramName = "ffmpeg.exe"
+    $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
 
-#If the file exist then ffmpeg is installed
-if ($targetPath) {
-    #Nothing
-} 
-else {
-    #While the user doesn't give an accepted anser, we repeat the process
-    #We only install FFmpeg if the cover is included
-    $Answer = "false"
-    $c = 0
-    $UserInput = "none"
-    if($IncludeCover -eq "true"){
-        while($Answer -eq "false"){
-            Clear-Host
+    #If the file exist then ffmpeg is installed
+    if ($targetPath) {
+        #Nothing
+    } 
+    else {
+        #While the user doesn't give an accepted anser, we repeat the process
+        #We only install FFmpeg if the cover is included
+        $Answer = "false"
+        $c = 0
+        $UserInput = "none"
+        if($IncludeCover -eq "true"){
+            while($Answer -eq "false"){
+                Clear-Host
 
-            if($c -ge 1){
-                Write-Host "Wrong input : $UserInput`n"
+                if($c -ge 1){
+                    Write-Host "Wrong input : $UserInput`n"
+                }
+
+                #Ask for user input
+                $UserInput = Read-Host -Prompt "FFmpeg is required when exporting with a cover`n`nDo you want to install FFmpeg from the official winget repository ? [proceed | cancel]"
+
+                if(($UserInput -eq "proceed") -or ($UserInput -eq "cancel")){
+                    #Answer is obtained
+                    $Answer = "true"
+                }
+                else {
+                    $c += 1  
+                }
             }
+        }
+        
 
-            #Ask for user input
-            $UserInput = Read-Host -Prompt "FFmpeg is required when exporting with a cover`n`nDo you want to install FFmpeg from the official winget repository ? [proceed | cancel]"
+        if($UserInput -eq "proceed"){
+            Write-Output "Installing ffmpeg"
 
-            if(($UserInput -eq "proceed") -or ($UserInput -eq "cancel")){
-                #Answer is obtained
-                $Answer = "true"
+            #Install ffmpeg
+            winget install ffmpeg
+
+            #Winget packet path
+            $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
+
+            #Search if the program is present (folder here)
+            $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+
+            #Check if ffmpeg was installed
+            if ($targetPath) {
+                #ffmpeg installed
+                Clear-Host
             }
             else {
-                $c += 1  
+                $global:FullMessage += "S: There was a problem with the ffmpeg installation"
+
+                #End Report
+                Report
+
+                #Stops the script
+                Break
             }
         }
-    }
-    
-
-    if($UserInput -eq "proceed"){
-        Write-Output "Installing ffmpeg"
-
-        #Install ffmpeg
-        winget install ffmpeg
-
-        #Winget packet path
-        $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
-
-        #Search if the program is present (folder here)
-        $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
-
-        #Check if ffmpeg was installed
-        if ($targetPath) {
-            #ffmpeg installed
-            Clear-Host
-        }
-        else {
-            $global:FullMessage += "S: There was a problem with the ffmpeg installation"
+        elseif ($UserInput -eq "cancel") {
+            $global:FullMessage += "S: User refused to install FFmpeg"
 
             #End Report
             Report
@@ -963,20 +1003,11 @@ else {
             Break
         }
     }
-    elseif ($UserInput -eq "cancel") {
-        $global:FullMessage += "S: User refused to install FFmpeg"
 
-        #End Report
-        Report
 
-        #Stops the script
-        Break
-    }
+    #moving to ffmpeg executable folder
+    Set-Location $targetPath
 }
-
-
-#moving to ffmpeg executable folder
-Set-Location $targetPath
 
 
 if($IncludeCover -eq "true"){
