@@ -22,7 +22,8 @@ II) How to execute the project ?
   Windows :
       powershell.exe -ExecutionPolicy Bypass -File "[Download Path]\BeatScrapper\BeatScrapper.ps1" $Host.Name
     Linux (Debian based) :
-      pwsh -ExecutionPolicy Bypass -File "[Download Path]\BeatScrapper\BeatScrapper.ps1" $Host.Name
+      sudo chmod 777 [Download Path]/BeatScrapper/Init.sh
+      sudo [Download Path]/BeatScrapper/Init.sh
 
 III) Who should you contact if you have a question or an issue ?
  - Maxime VALLET
@@ -54,8 +55,8 @@ II) Comment exécuter le projet ?
     Windows :
       powershell.exe -ExecutionPolicy Bypass -File "[Chemin Téléchargement]\BeatScrapper\BeatScrapper.ps1" $Host.Name
     Linux (OS basé sur Debian) :
-      sudo chmod 777 [Chemin Téléchargement]\BeatScrapper\Init.sh
-      sudo [Chemin Téléchargement]\BeatScrapper\Init.sh
+      sudo chmod 777 [Chemin Téléchargement]/BeatScrapper/Init.sh
+      sudo [Chemin Téléchargement]/BeatScrapper/Init.sh
 
 III) Qui contacter en cas de question ?
  - Maxime VALLET

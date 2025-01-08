@@ -1,5 +1,5 @@
 ﻿#Author : Maxime VALLET
-#Version : 10.4
+#Version : 11.0
 
 
 #Script parameter
@@ -10,10 +10,10 @@ param ($arg1 = "Default")
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @("C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomMultiplayerLevels", "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomLevels")
+$BSPath = @()
 
 #Folder path where the songs will be stored
-$DestPath = "C:\Users\Maxime\Downloads\Test"
+$DestPath = ""
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -600,6 +600,12 @@ function Report {
     #Creation of the logs
     $global:FullMessage += "`n`nNumber of Warnings : $NBWarnings`n`nNumber of Errors : $NBErrors`n`nNumber of Severe Errors : $NBSevereErrors`n"
     $global:FullMessage | Out-File $BSLog -Force
+
+    if($OS -eq "Unix"){
+        #Change target folder permission
+        sudo chmod 777 -R $DestPath
+    }
+    
 }
 
 
@@ -821,6 +827,12 @@ $ffprobe = "ffprobe"
 #Remove all jobs that exist
 Remove-Job -Name "*" -Force
 
+#Create the target path if it doesn't exist
+if (-not (Test-Path -LiteralPath $DestPath)) {
+    mkdir $DestPath | Out-Null
+}
+
+
 #FFmpeg log file path
 Set-Location $DestPath
 $location = Get-Location
@@ -1024,7 +1036,7 @@ if($OS -eq "Win32NT"){
 
 if($IncludeCover -eq "true"){
     #Check if the format is correct
-    $checkFormat = & $ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern "  $Format  "
+    $checkFormat = & $ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern " $Format  "
     if($checkFormat -eq $null){
     $global:FullMessage += "S: The format isn't supported by FFmpeg : $Format"
 
@@ -1039,9 +1051,26 @@ if($IncludeCover -eq "true"){
 
 #Defining the codec that will be used (if $IncludeCover is set to "true")
 $Preset = "false"
-$AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
-$Nvidia = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
-$Intel = Get-CimInstance win32_VideoController | Where-Object {$_ -match "intel"} | Select-Object Description
+if($OS -eq "Unix"){
+    #Check if the os is running in a VM
+    $WMWare = lspci | grep -i vmware
+    if($WMWare -ne $null){
+        $AMD = $null
+        $Nvidia = $null
+        $Intel = $null
+    }
+    else{
+        $AMD = lspci | grep -i amd
+        $Nvidia = lspci | grep -i nvidia
+        $Intel = lspci | grep -i intel
+    }
+}
+else{
+    $AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
+    $Nvidia = Get-CimInstance win32_VideoController | Where-Object {$_ -match "nvidia"} | Select-Object Description
+    $Intel = Get-CimInstance win32_VideoController | Where-Object {$_ -match "intel"} | Select-Object Description
+}
+
 
 #I used the GPU HW codec, especially H264 since it should be supported by near anything (that's why there is an $OverrideCodec in case the GPU doesn't support it therefore using software H264 (CPU))
 if($OverrideCodec -eq "true"){
@@ -1419,12 +1448,6 @@ if($UserInput -eq "cancel"){
 
     #Stops the script
     break
-}
-
-
-#Create the target path if it doesn't exist
-if (-not (Test-Path -LiteralPath $DestPath)) {
-    mkdir $DestPath | Out-Null
 }
 
 
