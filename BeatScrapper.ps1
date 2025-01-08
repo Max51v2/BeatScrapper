@@ -10,10 +10,10 @@ param ($arg1 = "Default")
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @()
+$BSPath = @("C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomMultiplayerLevels", "C:\Users\Maxime\BSManager\BSInstances\1.39.1\Beat Saber_Data\CustomLevels")
 
 #Folder path where the songs will be stored
-$DestPath = ""
+$DestPath = "C:\Users\Maxime\Downloads\Test"
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -215,13 +215,13 @@ function exportSong {
         else {
             #FFmpeg command
             if( -not ($AMD -eq $null)){
-                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a copy -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
+                $FFmpegCommand = "$ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -quality 1 -c:a copy -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
             }
             elseif($Preset -eq "true"){
-                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a copy -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
+                $FFmpegCommand = "$ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`" -preset ultrafast -c:a copy -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
             }
             else {
-                $FFmpegCommand = ".\ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a copy -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
+                $FFmpegCommand = "$ffmpeg -loglevel error -y -loop 1 -framerate 1 -i `"$CoverPath`" -i `"$SongPath`" -vf ""scale=if(gte(iw\,2)*2\,iw\,iw-1):if(gte(ih\,2)*2\,ih\,ih-1),pad=iw+1:ih+1:(ow-iw)/2:(oh-ih)/2"" -c:v `"$Codec`"` -c:a copy -shortest -movflags +faststart `"$SongDestPath`" 2>`"$ErrorLog`""
             }
 
             #Check if the song exists in the map folder
@@ -275,9 +275,6 @@ function exportSong {
                 $job = Start-Job -Name "$c" -ScriptBlock {
                     #Parameters used by the command + path of FFmpeg executable
                     Param($FFmpegCommand, $targetPath)
-
-                    #Go to the FFmpeg executable folder
-                    Set-Location $targetPath
 
                     #Launching the command and redirecting errors
                     Invoke-Expression $FFmpegCommand
@@ -811,6 +808,10 @@ while($c -lt $CharList[0].Length){
 
     $c += 1
 }
+#Default FFmpeg command for linux (path to bin is set if the OS is Windows)
+$ffmpeg = "ffmpeg"
+$ffprobe = "ffprobe"
+
 
 #Remove all jobs that exist
 Remove-Job -Name "*" -Force
@@ -843,8 +844,8 @@ if($OverrideCompatCheck -eq "false"){
             Break
         }
     }
-    elseif($OS -eq "Windows"){
-        #No action requiered
+    elseif($OS -eq "Win32NT"){
+        #Nothing
     }
     else{
         $global:FullMessage += "S: Unknown OS : $OS"
@@ -926,7 +927,7 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
     $BSPathIndex = $BSPathIndex+1
 }
 
-if($OS -eq "Windows"){
+if($OS -eq "Win32NT"){
     #Winget packet path
     $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
 
@@ -936,7 +937,11 @@ if($OS -eq "Windows"){
 
     #If the file exist then ffmpeg is installed
     if ($targetPath) {
-        #Nothing
+        #Set ffmpeg path to bin
+        $targetPathFFmpeg = Join-Path -Path $targetPath -ChildPath $ProgramName
+        $targetPathFFprobe = Join-Path -Path $targetPath -ChildPath "ffprobe"
+        $ffmpeg = $targetPathFFmpeg
+        $ffprobe = $targetPathFFprobe
     } 
     else {
         #While the user doesn't give an accepted anser, we repeat the process
@@ -982,6 +987,12 @@ if($OS -eq "Windows"){
             if ($targetPath) {
                 #ffmpeg installed
                 Clear-Host
+
+                #Set ffmpeg path to bin
+                $targetPathFFmpeg = Join-Path -Path $targetPath -ChildPath $ProgramName
+                $targetPathFFprobe = Join-Path -Path $targetPath -ChildPath "ffprobe"
+                $ffmpeg = $targetPathFFmpeg
+                $ffprobe = $targetPathFFprobe
             }
             else {
                 $global:FullMessage += "S: There was a problem with the ffmpeg installation"
@@ -1003,16 +1014,12 @@ if($OS -eq "Windows"){
             Break
         }
     }
-
-
-    #moving to ffmpeg executable folder
-    Set-Location $targetPath
 }
 
 
 if($IncludeCover -eq "true"){
     #Check if the format is correct
-    $checkFormat = .\ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern "  $Format  "
+    $checkFormat = & $ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern "  $Format  "
     if($checkFormat -eq $null){
     $global:FullMessage += "S: The format isn't supported by FFmpeg : $Format"
 
@@ -1113,7 +1120,7 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
     $BenchmarkDurationTotMS = [Math]::Round($BenchmarkDurationTotMS)
     $DestSongPath = Join-Path -Path $PSScriptRoot -ChildPath $FolderName
     $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
-    $MusicDurationS = .\ffprobe -i $DestSongPath -show_entries format=duration -v quiet -of csv="p=0"
+    $MusicDurationS = & $ffprobe -i $DestSongPath -show_entries format=duration -v quiet -of csv="p=0"
     $BenchmarkDurationPerSongMS = [Math]::Round($BenchmarkDurationTotMS/$BenchmarkIterations)
     
     #Calculating the time it takes to export a second of content
@@ -1267,7 +1274,7 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
 
             #Retrieve song's length
             if($SkipSong -eq "false"){
-                $MusicDurationS = .\ffprobe -i $DestSongPath -show_entries format=duration -v quiet -of csv="p=0"
+                $MusicDurationS = & $ffprobe -i $DestSongPath -show_entries format=duration -v quiet -of csv="p=0"
                 $MusicLengthS = $MusicLengthS + [Math]::Round($MusicDurationS)
             }
             else{
