@@ -592,7 +592,7 @@ function Report {
     PrintMessageType -DesiredMessageType "S"
 
     #Display log path
-    Write-Host "Logs available here : $BSLog" -ForegroundColor Blue
+    Write-Host "Logs available here : $BSLog`n" -ForegroundColor Blue
 
     #Display feedback message
     Write-Host "Any feedback welcome (new features or bugs) :)`n`n" -ForegroundColor Blue
@@ -792,6 +792,11 @@ function DeleteBenchSong {
 
 
 Clear-Host
+
+
+#Set shell color
+$Host.UI.RawUI.ForegroundColor = 'White'
+$Host.UI.RawUI.BackgroundColor = 'Black'
 
 #FullMessage is global because it can be modified in a function while being accessed in another
 #It's role is to hold the entirety of the messages that have to be displayed to the user (different than content whhich stores the messages that we currently display)
