@@ -10,10 +10,10 @@ param ($arg1 = "Default")
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @()
+$BSPath = @("/home/max/Téléchargements/BSSongs")
 
 #Folder path where the songs will be stored
-$DestPath = ""
+$DestPath = "/home/max/Téléchargements/Test"
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -1053,18 +1053,9 @@ if($IncludeCover -eq "true"){
 #Defining the codec that will be used (if $IncludeCover is set to "true")
 $Preset = "false"
 if($OS -eq "Unix"){
-    #Check if the os is running in a VM
-    $WMWare = lspci | grep -i vmware
-    if($WMWare -ne $null){
-        $AMD = $null
-        $Nvidia = $null
-        $Intel = $null
-    }
-    else{
-        $AMD = lspci | grep -i amd
-        $Nvidia = lspci | grep -i nvidia
-        $Intel = lspci | grep -i intel
-    }
+    $AMD = $null
+    $Nvidia = $null
+    $Intel = $null
 }
 else{
     $AMD = Get-CimInstance win32_VideoController | Where-Object {$_ -match "amd"} | Select-Object Description
