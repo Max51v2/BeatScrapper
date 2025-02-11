@@ -13,10 +13,10 @@ param ($arg1 = "Default")
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @("C:\Users\Maxime\Downloads\BSSongs")
+$BSPath = @("")
 
 #Folder path where the songs will be stored
-$DestPath = "C:\Users\Maxime\Downloads\Test"
+$DestPath = ""
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
