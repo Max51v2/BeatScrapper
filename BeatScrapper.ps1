@@ -1,19 +1,22 @@
 ﻿#Author : Maxime VALLET
-#Version : 11.0
+#Version : 11.2
 
 
 #Script parameter
 param ($arg1 = "Default")
 
+
+################################################################################################################################################################
 ########################################################################## Variables ##########################################################################
+################################################################################################################################################################
 
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @()
+$BSPath = @("C:\Users\Maxime\Downloads\BSSongs")
 
 #Folder path where the songs will be stored
-$DestPath = ""
+$DestPath = "C:\Users\Maxime\Downloads\Test"
 
 #Include cover : "true" | "false"
 #"false" is faster as it just copies the file
@@ -35,7 +38,9 @@ $BenchmarkIterations = 4
 $OverrideCodec = "false"
 
 
-###### ADVANCED ######
+##############################################
+################## ADVANCED ##################
+##############################################
 
 #Default HW codecs used by FFmpeg
 #Warning : some codecs use different flags so you could encounter errors if you modify them (that's why there is a $Preset var)
@@ -47,7 +52,7 @@ $IntelCodec = "h264_qsv"
 $SWCodec = "libx264"
 
 #Loading pattern displayed when exporting a song 
-#Uncomment the one you want
+#Uncomment the one you want or create yours
 #$CharList = @("|", "/", "-", "\", "|", "/", "-", "\")
 $CharList = @("⠇", "⠋", "⠙", "⠸", "⠴", "⠦")
 #$CharList = @("⠇⠀", "⠋⠀", "⠉⠁", "⠈⠃", "⠀⠇", "⠠⠆", "⠤⠄", "⠦⠀")
@@ -70,8 +75,16 @@ $doFFmpegBenchmark = "true"
 #Number of exports in between to clear-host (mostly to improve performance)
 $global:NBofExportBeforeClearingH = 5
 
-################################################################################################################################################################
+#Multiplier used to stop the FFmpeg export process when it takes to long (estimation based on the benchmark => no timeout if $doFFmpegBenchmark="false")
+#This can be an issue on specific songs (about 1% occurence) because of unknown reasons
+#   => sometimes this happen when FFmpeg can't read the song or the cover
+#   => I have no clue how to fix this except adding a timeout because FFmpeg won't stop by itself
+#The value used for the time out is : the time used to export a song (benchmark used as reference => give ms of export per s of song) times $TimeoutMultiplier
+$TimeoutMultiplier = 2
 
+################################################################################################################################################################
+################################################################################################################################################################
+################################################################################################################################################################
 
 
 
@@ -125,7 +138,11 @@ function exportSong {
         $CoverPath,
         $AMD,
         $Preset,
-        $FolderName
+        $FolderName,
+        $isBenchmarking,
+        $TimeoutMultiplier,
+        $TimePerSec,
+        $SourceSongPath
     )
     
     #Progression
@@ -198,7 +215,7 @@ function exportSong {
         #If the cover doesn't exist
         if(-not (Test-Path -LiteralPath $CoverPath)){
             $global:FullMessage += "W: No cover for $SongName"
-            $global:FullMessage += "H: Fallback to .egg"
+            $global:FullMessage += "H: => Fallback to .egg"
 
             #Refresh Content displayed in the shell
             $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
@@ -207,7 +224,7 @@ function exportSong {
             Out-Default
 
             #Relaunching the function with the EGG format
-            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -FolderName $FolderName
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -FolderName $FolderName -isBenchmarking $isBenchmarking -TimeoutMultiplier $TimeoutMultiplier -TimePerSec $TimePerSec -SourceSongPath $SourceSongPath
 
             return
         }
@@ -293,6 +310,22 @@ function exportSong {
                 $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
                 $Content = $GetProgressionObj.Content
 
+                #Timeout
+                $MusicDurationS = & $ffprobe -i $SourceSongPath -show_entries format=duration -v quiet -of csv="p=0"
+                $MusicDurationS = [Math]::Round($MusicDurationS)
+                if($isBenchmarking -eq "true"){
+                    $MaxElapsedTime = 40000
+                }
+                if($doFFmpegBenchmark -eq "false"){
+                    $MaxElapsedTime = 60000
+                }
+                else{
+                    $MaxElapsedTime = [Math]::Round( $MusicDurationS * $TimePerSec )
+                    $MaxElapsedTime = [Math]::Round( $MaxElapsedTime * $TimeoutMultiplier )
+                }
+                $ElapsedTime = 0
+                $Timeout = "false"
+
                 #While the job is running, remplace le pipe placed by DiplayProgression in the last message (repeat with next chars)
                 while ((Get-Job -Name "$c").State -eq "Running") {
                     #Refresh Content displayed in the shell
@@ -326,12 +359,25 @@ function exportSong {
 
                     #Refreshing time
                     Start-Sleep -Milliseconds $RefreshPeriod
+
+                    $ElapsedTime += $RefreshPeriod
+
+                    if($ElapsedTime -gt $MaxElapsedTime){
+                        $Timeout = "true"
+
+                        #Remove the job
+                        Remove-Job -Name "$c" -Force
+
+                        break
+                    }
                 }
 
                 $global:AddSpinner = "false"
 
                 #Remove the job
-                Remove-Job -Name "$c" -Force
+                if($Timeout -eq "false"){
+                    Remove-Job -Name "$c" -Force
+                }
 
                 #if there is a log file (imply that there is an error)
                 if (Test-Path -LiteralPath $ErrorLog) {
@@ -342,13 +388,25 @@ function exportSong {
                     #If there is errors
                     if ($errors -ne $null) {
                         $d=0
+
+                        #Changing the state from "Exporting" to "Error" in FullMessage
+                        $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Error"
+
                         #Fill FullMessage with the script error then the FFmpeg error
                         foreach ($line in $errors.Split("`n")) {
-                            if($d -eq 0){
-                                $global:FullMessage += "E: Couldn't create $SongDestName (Refer to logs for details)"
+                            if($d -ge 20){
+                                #Ignore long errors (in that case the one that give the same error until FFmpeg is stopped)
+                            }
+                            elseif($d -eq 0){
+                                if($Timeout -eq "true"){
+                                    $global:FullMessage += "E: FFmpeg Timed out for : $SongDestName (Refer to logs for details)"
+                                }
+                                else{
+                                    $global:FullMessage += "E: Couldn't create $SongDestName (Refer to logs for details)"
+                                }
                             }
                             else {
-                                $global:FullMessage += "H: => FFmpeg error : $line"
+                                $global:FullMessage += "H: > FFmpeg error : $line"
                             }
 
                             $d += 1
@@ -357,9 +415,16 @@ function exportSong {
                         #Trigger catch clause (=> EGG fallback)
                         throw
                     }
-
-                    #Changing the state from "Exporting" to "Exported" in FullMessage
-                    $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Exported"
+                    else {
+                        if($Timeout -eq "true"){
+                            #Changing the state from "Exporting" to "Timed out" in FullMessage
+                            $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Timed out" 
+                        }
+                        else{
+                            #Changing the state from "Exporting" to "Exported" in FullMessage
+                            $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Exported" 
+                        }
+                    }
                 }
             } 
             catch {
@@ -368,10 +433,12 @@ function exportSong {
                     Remove-Item -LiteralPath $SongDestPath
                 }
 
-                #Changing the state from "Exporting" to "Failed" in FullMessage
-                $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Failed (=>Egg)"
+                if($Timeout -eq "true"){
+                    #Changing the state from "Error" to "Timed out" in FullMessage
+                    $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Error"), "$c/$MusicNumber - Timed out"
+                }
 
-                $global:FullMessage += "H: Fallback to .egg"
+                $global:FullMessage += "H: => Fallback to .egg"
 
                 #Refresh Content displayed in the shell
                 $GetProgressionObj = GetProgression -FolderName $FolderName -Progression $Progression
@@ -380,7 +447,7 @@ function exportSong {
                 Out-Default
 
                 #Relaunching the function with the EGG format
-                exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -FolderName $FolderName
+                exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format "egg" -CoverPath $CoverPath -AMD $AMD -Preset $Preset -FolderName $FolderName -isBenchmarking $isBenchmarking -TimeoutMultiplier $TimeoutMultiplier -TimePerSec $TimePerSec -SourceSongPath $SourceSongPath
             }
         }
     }
@@ -677,7 +744,7 @@ function PrintMessageType {
 
 
 function PowerShellVersionWarning {
-    $global:FullMessage += "S: Please run this script in a compatible PowerShell instance (Current : $CurrentPowerShellVersion | Supported : Windows PowerShell and PowerShell 7)"
+    $global:FullMessage += "S: Please run this script in a compatible PowerShell instance (Current : $CurrentPowerShellVersion | Supported : Windows PowerShell (V. 5 and 7))"
 
     #End Report
     Report
@@ -769,6 +836,7 @@ function GetSongInfo {
             SongFileExtension = $SongFileExtension
             LevelPath = $LevelPath
             SongOriginalName = $SongOriginalName
+            DestSongPath = $DestSongPath
         }
     }
 
@@ -820,10 +888,11 @@ while($c -lt $CharList[0].Length){
 
     $c += 1
 }
+
+
 #Default FFmpeg command for linux (path to bin is set if the OS is Windows)
 $ffmpeg = "ffmpeg"
 $ffprobe = "ffprobe"
-
 
 #Remove all jobs that exist
 Remove-Job -Name "*" -Force
@@ -845,7 +914,11 @@ $location = Get-Location
 $BSLog = Join-Path -Path $location.Path -ChildPath "BeatScrapper_trace.log"
 
 
-
+#OS and Shell instance checking
+#OS : Only windows and Debian based OSes ar supported (mostly because of lazzyness)
+#Shell instance : depending on the version and if the output is redirected to another programm (e.g. vscode) things can display improperly
+#   => supported : PowerShell 5 and 7 through powershell.exe ONLY (because I couldn't fix these issues)
+#       => you can use $OverrideCompatCheck to bypass this limitation but it'll be visually broken
 if($OverrideCompatCheck -eq "false"){
     #Check the OS the script is running in
     $OS = [System.Environment]::OSVersion.Platform
@@ -853,13 +926,7 @@ if($OverrideCompatCheck -eq "false"){
     #If if it's a unix based OS we check the distribution
     if($OS -eq "Unix"){
         if (-not (Test-Path -LiteralPath "/usr/bin/apt")){
-            $global:FullMessage += "S: Unsuported OS (APT required)"
-    
-            #End Report
-            Report
-
-            #Stops the script
-            Break
+            $global:FullMessage += "W: Unsuported OS"
         }
     }
     elseif($OS -eq "Win32NT"){
@@ -929,6 +996,7 @@ if($IncludeCover -eq "false"){
     $Format = "egg"
 }
 
+
 #Check if all the paths in the var BSPath exist in the FS
 $BSPathIndex=0
 while ($BSPathIndex -le ($BSPath.Length-1)){
@@ -942,9 +1010,12 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
         #Stops the script
         Break
     }
+
     $BSPathIndex = $BSPathIndex+1
 }
 
+
+#If we're on Windows, the FFmpeg executable path is retrieved and the user is prompted to install it if not there
 if($OS -eq "Win32NT"){
     #Winget packet path
     $wingetPackagesDir = Join-Path -Path $env:LOCALAPPDATA -ChildPath "Microsoft\WinGet\Packages"
@@ -989,6 +1060,7 @@ if($OS -eq "Win32NT"){
         }
         
 
+        #FFmpeg installation if user agreed to
         if($UserInput -eq "proceed"){
             Write-Output "Installing ffmpeg"
 
@@ -1001,7 +1073,7 @@ if($OS -eq "Win32NT"){
             #Search if the program is present (folder here)
             $targetPath = Get-ChildItem -Path $wingetPackagesDir -Recurse -File -Filter $ProgramName -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
 
-            #Check if ffmpeg was installed
+            #Check if ffmpeg was installed properly
             if ($targetPath) {
                 #ffmpeg installed
                 Clear-Host
@@ -1035,6 +1107,7 @@ if($OS -eq "Win32NT"){
 }
 
 
+#Check if FFmpeg support the video format given by the user
 if($IncludeCover -eq "true"){
     #Check if the format is correct
     $checkFormat = & $ffmpeg -formats -hide_banner -loglevel error | Select-String -Pattern " $Format  "
@@ -1100,7 +1173,7 @@ $global:FullMessage += "H:  "
 
 
 #FFmpeg Benchmark
-#Value of time it takes to export a secong of a song
+#Value of time it takes to export a secong of a song in ms
 $TimePerSec = 0
 if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
     $BIIndex = 1
@@ -1124,12 +1197,13 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
             $SongFileName = $GetSongInfoObj.SongFileName 
             $SongFileExtension = $GetSongInfoObj.SongFileExtension
             $LevelPath = $GetSongInfoObj.LevelPath
+            $SourceSongPath = $GetSongInfoObj.DestSongPath
 
             #Bench song deletion
             DeleteBenchSong -DestPath $DestPath -SongName $SongName -Format $Format
 
             #Export
-            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $BIIndex -MusicNumber $BenchmarkIterations -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $BIIndex -MusicNumber $BenchmarkIterations -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName -isBenchmarking "true" -TimeoutMultiplier $TimeoutMultiplier -TimePerSec $TimePerSec -SourceSongPath $SourceSongPath
         }
         $BIIndex += 1
 
@@ -1159,6 +1233,7 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
         $global:FullMessage += "H: Exporting duration ($BenchmarkIterations song): $TimePerSec ms of Exporting/s"
     }
 
+
     #Running skipping Benchmark
     $BIIndex = 1
     $BenchmarkDurationTotMS = 0
@@ -1175,9 +1250,10 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
             $SongFileName = $GetSongInfoObj.SongFileName 
             $SongFileExtension = $GetSongInfoObj.SongFileExtension
             $LevelPath = $GetSongInfoObj.LevelPath
+            $SourceSongPath = $GetSongInfoObj.DestSongPath
 
             #Export
-            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $BIIndex -MusicNumber $BenchmarkIterations -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $BIIndex -MusicNumber $BenchmarkIterations -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName -isBenchmarking "true" -TimeoutMultiplier $TimeoutMultiplier -TimePerSec $TimePerSec -SourceSongPath $SourceSongPath
         }
         $BIIndex += 1
 
@@ -1208,6 +1284,7 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
     Write-Host $Content -NoNewline
     Out-Default
 }
+
 
 #Fetching how much maps there is so we can display the progression
 $MusicNumber=0
@@ -1283,6 +1360,7 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
             $SkipSong = $GetSongInfoObj.SkipSong
             $SongFileName = $GetSongInfoObj.SongFileName 
             $SongFileExtension = $GetSongInfoObj.SongFileExtension
+            $SourceSongPath = $GetSongInfoObj.DestSongPath
 
             $DestSongPath = Join-Path -Path $BSPath[$BSPathIndex] -ChildPath $_.Name
             $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
@@ -1466,9 +1544,10 @@ while ($BSPathIndex -le ($BSPath.Length-1)){
         $SongFileName = $GetSongInfoObj.SongFileName 
         $SongFileExtension = $GetSongInfoObj.SongFileExtension
         $LevelPath = $GetSongInfoObj.LevelPath
+        $SourceSongPath = $GetSongInfoObj.DestSongPath
 
         #Export
-        exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName
+        exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $c -MusicNumber $MusicNumber -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName -isBenchmarking "false" -TimeoutMultiplier $TimeoutMultiplier -TimePerSec $TimePerSec -SourceSongPath $SourceSongPath
     }
     $BSPathIndex = $BSPathIndex+1
 }

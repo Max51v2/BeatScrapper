@@ -31,7 +31,7 @@ then
     c=0
 
     #Tant que l'on a pas une option valide, on redemande à l'utilisateur d'en saisir une
-    while [ "$option" != "Y" ] && [ "$option" != "y" ] && [ "$option" != "y" ] && [ "$SkipPrompt" = "false" ]
+    while [ "$option" != "Y" ] && [ "$option" != "y" ] && [ "$SkipPrompt" = "false" ]
     do
         #Stop the script if user typed "cancel"
         if [ "$option" = "N" ] || [ "$option" = "n" ]
@@ -64,10 +64,6 @@ then
         c=$(($c+1)) 
     done
 
-
-    clear
-
-    apt-get update 
 
     clear
 
@@ -114,5 +110,75 @@ then
     echo "Launching BeatScrapper.ps1"
     pwsh -ExecutionPolicy Bypass -File $BeatScrapperPWSHScriptPath $Host.Name
 else
-    echo "Unsuported OS"
+    clear
+
+    #Check if PowerShell is installed
+    PWSH=$(which pwsh)
+
+    #Check if FFmpeg is installed
+    ffmpeg=$(which ffmpeg)
+
+    #Check if we skip the prompt to install dependancies
+    SkipPrompt="false"
+    if [ "$PWSH" != "" ] && [ "$ffmpeg" != "" ]
+    then
+        SkipPrompt="true"
+    else
+        echo "You're using an unsuported OS (only Debian based linux or Windows supported)"
+        echo
+        echo "To run this script, you'll need to install FFmpeg and PowerShell by yourself"
+
+        #Stop the script
+        exit 1
+    fi
+
+    clear
+
+    option="undetermined"
+    c=0
+
+    #Tant que l'on a pas une option valide, on redemande à l'utilisateur d'en saisir une
+    while [ "$option" != "Y" ] && [ "$option" != "y" ] && [ "$SkipPrompt" = "false" ]
+    do
+        #Stop the script if user typed "cancel"
+        if [ "$option" = "N" ] || [ "$option" = "n" ]
+        then
+            clear
+
+            #Stop the script
+            exit 1
+        fi
+
+        clear
+
+        if [ "$c" -ge 1 ]
+        then
+            echo "Wrong input : \"$option\""
+
+            echo
+        fi
+
+        echo "This script haven't been tested on non Debian based Distibutions"
+        echo "You might run into bugs"
+        echo "Do you want to run this script anyway ? [Y | N]"
+
+        echo
+
+        sleep 1
+
+        #Lecture de l'entrée utilisateur
+        read  -n 1 -p "Option :" option
+
+        c=$(($c+1)) 
+    done
+
+    #Retrive the powershell's script path
+    ProjectDirPath=$(echo $0 | sed 's:/[^/]*$::')
+    BeatScrapperPWSHScriptPath=$(echo "$ProjectDirPath/BeatScrapper.ps1")
+
+    clear
+
+    #Launch the script
+    echo "Launching BeatScrapper.ps1"
+    pwsh -ExecutionPolicy Bypass -File $BeatScrapperPWSHScriptPath $Host.Name
 fi
