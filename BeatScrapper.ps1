@@ -1,5 +1,5 @@
 ﻿#Author : Maxime VALLET
-#Version : 11.2
+#Version : 11.3
 
 
 #Script parameter
@@ -314,9 +314,9 @@ function exportSong {
                 $MusicDurationS = & $ffprobe -i $SourceSongPath -show_entries format=duration -v quiet -of csv="p=0"
                 $MusicDurationS = [Math]::Round($MusicDurationS)
                 if($isBenchmarking -eq "true"){
-                    $MaxElapsedTime = 40000
+                    $MaxElapsedTime = 60000
                 }
-                if($doFFmpegBenchmark -eq "false"){
+                elseif($doFFmpegBenchmark -eq "false"){
                     $MaxElapsedTime = 60000
                 }
                 else{
@@ -387,21 +387,24 @@ function exportSong {
 
                     #If there is errors
                     if ($errors -ne $null) {
-                        $d=0
-
-                        #Changing the state from "Exporting" to "Error" in FullMessage
-                        $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Error"
 
                         #Fill FullMessage with the script error then the FFmpeg error
+                        $d=0
                         foreach ($line in $errors.Split("`n")) {
                             if($d -ge 20){
                                 #Ignore long errors (in that case the one that give the same error until FFmpeg is stopped)
                             }
                             elseif($d -eq 0){
                                 if($Timeout -eq "true"){
+                                    #Changing the state from "Exporting" to "Timed out" in FullMessage
+                                    $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Timed out"
+
                                     $global:FullMessage += "E: FFmpeg Timed out for : $SongDestName (Refer to logs for details)"
                                 }
                                 else{
+                                    #Changing the state from "Exporting" to "Error" in FullMessage
+                                    $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Error"
+
                                     $global:FullMessage += "E: Couldn't create $SongDestName (Refer to logs for details)"
                                 }
                             }
@@ -416,26 +419,19 @@ function exportSong {
                         throw
                     }
                     else {
-                        if($Timeout -eq "true"){
-                            #Changing the state from "Exporting" to "Timed out" in FullMessage
-                            $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Timed out" 
-                        }
-                        else{
-                            #Changing the state from "Exporting" to "Exported" in FullMessage
-                            $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Exported" 
-                        }
+                        #Changing the state from "Exporting" to "Exported" in FullMessage
+                        $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Exported" 
                     }
+                }
+                else {
+                    #Changing the state from "Exporting" to "Exported" in FullMessage
+                    $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Exporting"), "$c/$MusicNumber - Exported" 
                 }
             } 
             catch {
                 #Deletion of the file if it exists (would be empty in that case)
                 if(Test-Path -LiteralPath $SongDestPath){
                     Remove-Item -LiteralPath $SongDestPath
-                }
-
-                if($Timeout -eq "true"){
-                    #Changing the state from "Error" to "Timed out" in FullMessage
-                    $global:FullMessage = $global:FullMessage -replace [regex]::Escape("$c/$MusicNumber - Error"), "$c/$MusicNumber - Timed out"
                 }
 
                 $global:FullMessage += "H: => Fallback to .egg"
@@ -820,6 +816,7 @@ function GetSongInfo {
 
         $DestSongPath = Join-Path -Path $CurrentFolder -ChildPath $MapFolderName
         $DestSongPath = Join-Path -Path $DestSongPath -ChildPath "$SongFileName.$SongFileExtension"
+        
         if(-not (Test-Path -LiteralPath $DestSongPath)){
             $SkipSong = "true"
         }
@@ -1193,7 +1190,6 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
             $GetSongInfoObj = GetSongInfo -MapFolderName $FolderName -CurrentFolder $PSScriptRoot -MusicNumber $BenchmarkIterations -c $BIIndex -logLevel "all"
             $SongName = $GetSongInfoObj.SongName
             $CoverPath = $GetSongInfoObj.CoverPath
-            $SkipSong = $GetSongInfoObj.SkipSong
             $SongFileName = $GetSongInfoObj.SongFileName 
             $SongFileExtension = $GetSongInfoObj.SongFileExtension
             $LevelPath = $GetSongInfoObj.LevelPath
@@ -1203,7 +1199,7 @@ if(($doFFmpegBenchmark -eq "true") -and ($IncludeCover -eq "true")){
             DeleteBenchSong -DestPath $DestPath -SongName $SongName -Format $Format
 
             #Export
-            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $BIIndex -MusicNumber $BenchmarkIterations -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName -isBenchmarking "true" -TimeoutMultiplier $TimeoutMultiplier -TimePerSec $TimePerSec -SourceSongPath $SourceSongPath
+            exportSong -SongFileName $SongFileName -SongFileExtension $SongFileExtension -SongName $SongName -LevelPath $LevelPath -DestPath $DestPath -c $BIIndex -MusicNumber $BenchmarkIterations -Format $Format -CoverPath $CoverPath -AMD $AMD -Preset $Preset -SongExist $SongExist -FolderName $FolderName -isBenchmarking "true" -TimeoutMultiplier $TimeoutMultiplier -TimePerSec 60000 -SourceSongPath $SourceSongPath
         }
         $BIIndex += 1
 
