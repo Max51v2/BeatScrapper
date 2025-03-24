@@ -4,7 +4,7 @@ If the text doesn't display properly, try to open it in the project and click on
 WARNING :
 You should never run a PowerShell script until you have read it made sure it is safe to do so !
 VirusTotal analysis : 
-  - BeatScrapper.ps1 : https://www.virustotal.com/gui/file/f6b77ce7329e68bc58a761c86a5ea4ba6f2e5273f7af6b3d03c5458b4e25a9a0
+  - BeatScrapper.ps1 : https://www.virustotal.com/gui/file/9e5c89c169853b45c56076a7f50c4244ee6bfff2c76ccca7d4e0c7585147f610
   - Init.sh : https://www.virustotal.com/gui/file/340ab5ae77212d5a2b5eb4f939a40b2af612904bb4dc0245786b425ba55d250a
 
 I) Presentation
@@ -38,7 +38,7 @@ En cas de problèmes d'affichage, merci d'ouvrir la doc depuis le projet et de s
 ATTENTION :
 N'exécutez jamais de script PowerShell avant d'avoir lu son contenu et que vous ayez déterminé que cela soit sans danger !
 Analyse VirusTotal : 
-  - BeatScrapper.ps1 : https://www.virustotal.com/gui/file/f6b77ce7329e68bc58a761c86a5ea4ba6f2e5273f7af6b3d03c5458b4e25a9a0
+  - BeatScrapper.ps1 : https://www.virustotal.com/gui/file/9e5c89c169853b45c56076a7f50c4244ee6bfff2c76ccca7d4e0c7585147f610
   - Init.sh : https://www.virustotal.com/gui/file/340ab5ae77212d5a2b5eb4f939a40b2af612904bb4dc0245786b425ba55d250a
 
 I) Présentation
