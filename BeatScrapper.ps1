@@ -13,7 +13,7 @@ param ($arg1 = "Default")
 #Beat Saber maps path(s)
 #Add every folder that contains songs (CustomSongs, MultiplayerSongs ...)
 #Format : $BSPath = @("Path1", ..., "Path N")
-$BSPath = @("")
+$BSPath = @()
 
 #Folder path where the songs will be stored
 $DestPath = ""
@@ -787,22 +787,19 @@ function GetSongInfo {
 
         #Retrieve the song's real name
         $json = (Get-Content -LiteralPath $SongInfoPath -Raw -Encoding UTF8) | ConvertFrom-Json
-        $Song = $json._songName
-        $SongOriginalName = ($Song -replace '\.[^.]+$','') -replace '[<>:"/\\|?*]', ''
+        $SongOriginalName = ($json._songName -replace '\.[^.]+$', '') -replace '[<>:"/\\|?*\r\n]', ''
 
         #Retrieve the song's Author name
         $json = (Get-Content -LiteralPath $SongInfoPath -Raw -Encoding UTF8) | ConvertFrom-Json
-        $Song = $json._songAuthorName
-        $SongAuthorName = $Song -replace '\.[^.]+$'
+        $SongAuthorName = $json._songAuthorName -replace '[<>:"/\\|?*\r\n]', ''
 
         #Final song's name
         $SongName = "$SongAuthorName - $SongOriginalName"
 
         #Retrieve the cover's name
-        $json = (Get-Content -LiteralPath $SongInfoPath -Raw -Encoding UTF8) | ConvertFrom-Json
-        $Image = $json._coverImageFilename
+        $Image = $json._coverImageFilename -replace '[<>:"/\\|?*\r\n]', ''
         $ImageName = $Image -replace '\.[^.]+$'
-        $ImageExtension =  $Image -replace '.*\.'
+        $ImageExtension = $Image -replace '.*\.'
 
         #Cover path
         $CoverPath = Join-Path -Path $LevelPath -ChildPath "$ImageName.$ImageExtension"
